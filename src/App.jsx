@@ -405,7 +405,7 @@ export default function App() {
       setIsUploadingImg(true);
       try {
         const fileRef = ref(storage, `floorplans/${Date.now()}_${file.name}`);
-        await uploadBytesResumable(fileRef, file);
+        await uploadBytes(fileRef, file);
         const downloadURL = await getDownloadURL(fileRef);
         setFormData(prev => ({ ...prev, floorplanUrl: downloadURL }));
       } catch (error) {
