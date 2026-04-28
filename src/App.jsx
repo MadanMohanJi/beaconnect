@@ -397,22 +397,30 @@ export default function App() {
       setEditingVenueId(venue.id); window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // --- NEW: Handle Image Upload from Gallery ---
+    // --- UPDATED: Bulletproof Image Upload ---
     const handleImageUpload = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
       setIsUploadingImg(true);
       try {
+        console.log("1. Starting upload to Firebase...");
         const fileRef = ref(storage, `floorplans/${Date.now()}_${file.name}`);
+        
+        // Using standard uploadBytes for a faster, guaranteed completion
         await uploadBytes(fileRef, file);
+        console.log("2. Upload complete! Fetching URL...");
+        
         const downloadURL = await getDownloadURL(fileRef);
+        console.log("3. Success! URL is:", downloadURL);
+        
         setFormData(prev => ({ ...prev, floorplanUrl: downloadURL }));
       } catch (error) {
-        console.error("Upload error:", error);
-        alert("Failed to upload image. Did you unlock Firebase Storage rules?");
+        console.error("Upload error details:", error);
+        alert("Upload failed! Press F12 to see the exact error in the console.");
       } finally {
         setIsUploadingImg(false);
+        e.target.value = null; // Clears the input so you can select the same file again if needed
       }
     };
 
