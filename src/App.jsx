@@ -125,7 +125,7 @@ const notifyStaff = (alert) => {
   }
 };
 
-// --- DYNAMIC ETA TIMER ---
+// --- DYNAMIC ETA TIMER (ISOLATED TO PREVENT MAP BLINKING) ---
 const CountdownTimer = ({ endTime, isLoRa }) => {
   const [timeLeft, setTimeLeft] = useState(Math.max(0, Math.floor((endTime - Date.now()) / 1000)));
   
@@ -215,7 +215,7 @@ export default function App() {
 
       const activeAlerts = fetchedAlerts.filter(a => a.status === 'active' && a.venueId === activeVenue?.id);
       
-      // Only trigger notification for NEW alerts, not every time it updates
+      // Only trigger notification for NEW alerts
       if ((currentRole === 'staff' || currentRole === 'responder') && activeAlerts.length > prevAlertCountRef.current) {
          notifyStaff(activeAlerts[0]);
          if (!mutedAlerts.includes(activeAlerts[0].id)) triggerHardwareAlarm();
@@ -562,7 +562,9 @@ export default function App() {
                            <button type="button" className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded font-bold flex items-center gap-1 pointer-events-none"><UploadCloud size={14}/> Bulk Upload CSV</button>
                          </div>
                        </div>
-                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="101 Maple St&#10;102 Maple St&#10;103 Maple St" rows={4}></textarea>
+                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="101 Maple St
+102 Maple St
+103 Maple St" rows={4}></textarea>
                      </div>
                      <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-md mt-2">
                        {editingVenueId ? 'Update Infrastructure' : 'Initialize Deployment'}
@@ -766,7 +768,6 @@ export default function App() {
       <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 overflow-hidden font-sans">
         {isRedAlert && <div className="absolute inset-0 border-[6px] border-red-500 pointer-events-none z-50 animate-pulse"></div>}
 
-        {/* Mobile Header */}
         <div className="md:hidden w-full bg-slate-900 text-white p-4 flex justify-between items-center shrink-0 z-20 shadow-lg">
           <div className="flex items-center gap-2 font-black text-lg"><Zap className="text-blue-500" size={20} /> Command</div>
           <button onClick={handleLogout} className="text-white hover:text-red-400 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-colors active:scale-95">
@@ -774,7 +775,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Desktop Sidebar */}
         <div className="hidden md:flex w-24 bg-slate-900 flex-col items-center py-6 shadow-2xl z-20 shrink-0 relative">
           <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-3.5 rounded-2xl mb-8 shadow-lg shadow-blue-900/50"><Zap className="text-white" size={28} /></div>
           <div className="flex flex-col gap-6 w-full items-center">
@@ -784,9 +784,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Incidents List Column */}
         <div className="w-full md:w-[480px] bg-white border-r border-slate-200 flex flex-col h-[50vh] md:h-full z-10 shadow-xl shrink-0">
-          
           <div className="hidden md:flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/80 backdrop-blur shrink-0">
              <div className="text-xs font-bold text-slate-500 uppercase tracking-widest"><Building size={14} className="inline mr-1 -mt-0.5"/> {activeVenue.name}</div>
              <button onClick={handleLogout} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95">
@@ -861,7 +859,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Overview Map Panel */}
         <div className="flex-grow p-4 md:p-6 flex flex-col h-[50vh] md:h-full overflow-hidden bg-slate-100">
           <div className="w-full h-full bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col relative p-6">
              <div className="absolute top-6 left-6 bg-slate-900/90 backdrop-blur text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 z-10 border border-slate-700"><Building size={14} className="text-blue-400"/> Facility Overview</div>
@@ -918,7 +915,7 @@ export default function App() {
          );
        }
 
-       const mapUrl = `https://maps.google.com/maps?q=$${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
+       const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
        return (
          <div className="flex-grow relative flex bg-black overflow-hidden w-full h-full">
             <iframe 
