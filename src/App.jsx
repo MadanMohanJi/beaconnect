@@ -10,6 +10,7 @@ import {
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // NEW IMPORTS
 
 // --- Firebase Configuration ---
 const firebaseConfig = {
@@ -25,6 +26,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); // NEW: Initialize Storage
 const appId = 'beaconnect'; 
 const ALERTS_COLLECTION = 'alerts_v6';
 const VENUES_COLLECTION = 'venues_v6';
@@ -69,7 +71,6 @@ async function analyzeEmergency(text) {
   }
 }
 
-// --- Professional Sonar Ping Audio ---
 const triggerHardwareAlarm = () => {
   if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
   try {
@@ -100,7 +101,6 @@ const notifyStaff = (alert) => {
   }
 };
 
-// --- Slide To Cancel Component ---
 const SlideToCancel = ({ onCancel }) => {
   const [value, setValue] = useState(0);
   const handleChange = (e) => {
@@ -126,7 +126,6 @@ const SlideToCancel = ({ onCancel }) => {
   );
 };
 
-// --- Isolated Countdown Timer ---
 const CountdownTimer = ({ endTime, isLoRa }) => {
   const [timeLeft, setTimeLeft] = useState(Math.max(0, Math.floor((endTime - Date.now()) / 1000)));
   useEffect(() => {
@@ -287,7 +286,6 @@ export default function App() {
     recognition.start();
   };
 
-  // --- 1. Portal / Login Screen ---
   const Portal = () => {
     const [accessCode, setAccessCode] = useState('');
     const [staffPin, setStaffPin] = useState('');
@@ -342,19 +340,17 @@ export default function App() {
           <div className="space-y-4">
             {loginType !== 'admin' && (
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Zone Code</label>
                 <div className="mt-1 relative group">
                   <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 transition-colors" />
-                  <input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="e.g. VEGAS24" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white uppercase font-mono outline-none focus:border-blue-500 transition-all" />
+                  <input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="Zone Code (e.g. VEGAS24)" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white uppercase font-mono outline-none focus:border-blue-500 transition-all" />
                 </div>
               </div>
             )}
             {(loginType === 'staff' || loginType === 'admin') && (
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Security PIN</label>
                 <div className="mt-1 relative group">
                   <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 transition-colors" />
-                  <input type="password" value={staffPin} onChange={e => setStaffPin(e.target.value)} placeholder={loginType === 'admin' ? "Demo: 9999" : "Demo: 1234"} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white outline-none focus:border-blue-500 transition-all" />
+                  <input type="password" value={staffPin} onChange={e => setStaffPin(e.target.value)} placeholder={loginType === 'admin' ? "Admin PIN: 9999" : "Staff PIN: 1234"} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white outline-none focus:border-blue-500 transition-all" />
                 </div>
               </div>
             )}
@@ -369,17 +365,16 @@ export default function App() {
     );
   };
 
-  // --- 2. Admin Settings View ---
   const AdminSettings = () => {
     const [formData, setFormData] = useState({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '', floorplanUrl: '' });
     const [editingVenueId, setEditingVenueId] = useState(null);
     const [isLocating, setIsLocating] = useState(false);
+    const [isUploadingImg, setIsUploadingImg] = useState(false); // NEW STATE FOR UPLOAD
     
     const [iotRoom, setIotRoom] = useState(activeVenue?.rooms?.[0] || '');
     const [iotType, setIotType] = useState('Fire');
     const [iotDevice, setIotDevice] = useState('LoRa Smart Smoke Detector');
 
-    // Smart Generator State
     const [baseName, setBaseName] = useState('');
     const [subZoneInput, setSubZoneInput] = useState('Kitchen, Master Bedroom, Living Room, Guest Bath');
 
@@ -400,6 +395,25 @@ export default function App() {
     const handleEdit = (venue) => {
       setFormData({ name: venue.name, venueType: venue.venueType, code: venue.code, lat: venue.lat, lng: venue.lng, floorplanUrl: venue.floorplanUrl || '', roomsStr: venue.rooms.join(',\n') });
       setEditingVenueId(venue.id); window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // --- NEW: Handle Image Upload from Gallery ---
+    const handleImageUpload = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      setIsUploadingImg(true);
+      try {
+        const fileRef = ref(storage, `floorplans/${Date.now()}_${file.name}`);
+        await uploadBytesResumable(fileRef, file);
+        const downloadURL = await getDownloadURL(fileRef);
+        setFormData(prev => ({ ...prev, floorplanUrl: downloadURL }));
+      } catch (error) {
+        console.error("Upload error:", error);
+        alert("Failed to upload image. Did you unlock Firebase Storage rules?");
+      } finally {
+        setIsUploadingImg(false);
+      }
     };
 
     const handleCSVUpload = (e) => {
@@ -468,20 +482,26 @@ export default function App() {
                          </div>
                      </div>
                      
-                     <div className="flex gap-4">
-                         <div className="w-1/3">
+                     <div className="flex flex-col gap-4 md:flex-row">
+                         <div className="w-full md:w-1/3">
                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Access Code</label>
                            <input required type="text" value={formData.code} disabled={!!editingVenueId} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm uppercase tracking-widest disabled:opacity-50" placeholder="OAKCREEK" />
                          </div>
+                         
+                         {/* --- NEW: Image Upload Field --- */}
                          <div className="flex-1">
-                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Floor Plan Image Link (Optional)</label>
-                           <div className="relative">
-                             <ImageIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                             <input type="url" value={formData.floorplanUrl} onChange={e=>setFormData({...formData, floorplanUrl: e.target.value})} className="w-full p-3 pl-9 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm" placeholder="https://imgur.com/blueprint.png" />
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Floor Plan Image</label>
+                           <div className="relative flex items-center gap-3">
+                             <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="floorplan-upload" />
+                             <label htmlFor="floorplan-upload" className={`cursor-pointer px-4 py-3 w-full bg-blue-50 text-blue-600 font-bold rounded-xl border border-blue-200 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 ${isUploadingImg ? 'opacity-50 pointer-events-none' : ''}`}>
+                                {isUploadingImg ? <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" /> : <UploadCloud size={18} />}
+                                {isUploadingImg ? 'Uploading...' : 'Upload from Gallery'}
+                             </label>
                            </div>
                          </div>
                      </div>
 
+                     {/* Image Preview Window */}
                      {formData.floorplanUrl && (
                         <div className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-2 text-center relative overflow-hidden group cursor-pointer" onClick={handleImageClick} title="Click to add a room zone!">
                            <img src={formData.floorplanUrl} alt="Preview" className="max-h-[150px] mx-auto opacity-70 group-hover:opacity-100 transition-opacity" />
@@ -494,7 +514,7 @@ export default function App() {
                      <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                         <div className="flex justify-between items-center mb-3">
                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Geographic Bounds</label>
-                           <button onClick={handleAutoDetectGPS} type="button" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-700 font-bold shadow-sm">
+                           <button onClick={handleAutoDetectGPS} type="button" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-700 active:scale-95 transition-all font-bold shadow-sm">
                               {isLocating ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <GpsIcon size={14}/>} Auto-Detect
                            </button>
                         </div>
@@ -597,7 +617,6 @@ export default function App() {
 
   // --- 3. Guest/Resident Interface ---
   const GuestInterface = () => {
-    // Dictionary for Multi-language translation via navigator.language
     const isSpanish = navigator.language.startsWith('es');
     const isHindi = navigator.language.startsWith('hi');
     const uiText = {
@@ -611,10 +630,8 @@ export default function App() {
 
     const currentRoomAlert = alerts.find(a => a.venueId === activeVenue.id && a.roomId === guestRoomId && a.status === 'active');
     const isNeighborhood = activeVenue.venueType === 'neighborhood';
-
     const [isScanningBLE, setIsScanningBLE] = useState(false);
 
-    // BLE Auto-Locator Simulator
     const simulateBLEScan = () => {
       setIsScanningBLE(true);
       setTimeout(() => {
@@ -628,7 +645,6 @@ export default function App() {
       }, 2000);
     };
 
-    // Active Panic UI State
     if (currentRoomAlert) {
       const isMedical = currentRoomAlert.type === 'Medical';
       return (
@@ -649,25 +665,19 @@ export default function App() {
           )}
 
           <h2 className="text-3xl md:text-4xl font-black mb-2 tracking-tight">SOS Transmitting</h2>
-          
           {isMedical ? (
              <p className="text-blue-200 mb-8 max-w-sm text-lg font-medium">Help is routing to <span className="text-white font-bold">{guestRoomId}</span>.<br/><br/><span className="text-blue-400 font-bold">Breathe in sync with the circle.</span></p>
           ) : (
              <p className="text-slate-300 mb-8 max-w-sm text-lg font-medium">Response teams are routing to <span className="text-white font-bold block mt-1">{guestRoomId}</span></p>
           )}
-          
-          <div className="mt-auto mb-12 w-full flex justify-center">
-             <SlideToCancel onCancel={() => resolveAlert(currentRoomAlert.id)} />
-          </div>
+          <div className="mt-auto mb-12 w-full flex justify-center"><SlideToCancel onCancel={() => resolveAlert(currentRoomAlert.id)} /></div>
         </div>
       );
     }
 
-    // Default Dashboard State
     return (
       <div className="w-full h-full bg-slate-100 overflow-y-auto font-sans">
         <div className="max-w-md mx-auto min-h-full bg-white shadow-2xl flex flex-col relative">
-          
           <div className="p-6 md:p-8 text-center shrink-0 bg-white sticky top-0 z-20 shadow-sm">
             <div className="flex justify-between items-start mb-4">
                <div className="inline-flex items-center px-3 py-1.5 bg-blue-50 rounded-xl border border-blue-100">
@@ -676,14 +686,13 @@ export default function App() {
                <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 p-2 rounded-lg active:scale-95"><LogOut size={18}/></button>
             </div>
             <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">{activeVenue.name}</h1>
-            
             <div className="mt-4 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden group focus-within:border-blue-400 transition-colors">
               <div className="flex items-center p-1.5">
                 <button onClick={simulateBLEScan} disabled={isScanningBLE} className={`shrink-0 p-2.5 rounded-lg flex items-center justify-center transition-all ${isScanningBLE ? 'bg-blue-100 text-blue-600' : 'bg-white text-slate-400 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 shadow-sm active:scale-95'}`} title="Auto-Detect Location via BLE Beacons">
                   {isScanningBLE ? <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" /> : <Crosshair size={18} />}
                 </button>
                 <select value={guestRoomId} onChange={handleRoomChange} disabled={isScanningBLE} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full text-center appearance-none px-3 disabled:opacity-50">
-                  <option value="" disabled>{isScanningBLE ? 'Triangulating indoor position...' : (isNeighborhood ? 'Select Your Address...' : 'Select Your Zone...')}</option>
+                  <option value="" disabled>{isScanningBLE ? 'Triangulating position...' : (isNeighborhood ? 'Select Your Address...' : 'Select Your Zone...')}</option>
                   {activeVenue.rooms?.map(id => <option key={id} value={id}>{id}</option>)}
                 </select>
                 {guestRoomId && !isScanningBLE && <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mr-2 opacity-70" />}
@@ -727,7 +736,7 @@ export default function App() {
               <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 items-center">
                 <button onClick={handleVoiceInput} className={`p-2 rounded-full transition-colors shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500 hover:bg-blue-100 hover:text-blue-600'}`}><Mic size={18} /></button>
                 <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Speak or type..." className="flex-grow p-2 text-sm font-medium bg-transparent text-slate-800 outline-none min-w-0" disabled={isSubmitting} />
-                <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold hover:bg-blue-600 disabled:opacity-50 active:scale-95 shrink-0 min-w-[80px]">{isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Send'}</button>
+                <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold hover:bg-blue-600 disabled:opacity-50 active:scale-95 shrink-0 flex items-center justify-center min-w-[80px]">{isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Send'}</button>
               </div>
             </div>
             <div className="h-12 w-full"></div>
@@ -746,17 +755,13 @@ export default function App() {
     return (
       <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 overflow-hidden font-sans">
         {isRedAlert && <div className="absolute inset-0 border-[6px] border-red-500 pointer-events-none z-50 animate-pulse"></div>}
-
         <div className="md:hidden w-full bg-slate-900 text-white p-4 flex justify-between items-center shrink-0 z-20 shadow-lg">
           <div className="flex items-center gap-2 font-black text-lg"><Zap className="text-blue-500" size={20} /> Command</div>
           <button onClick={handleLogout} className="text-white hover:text-red-400 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold active:scale-95">LOGOUT <LogOut size={14} /></button>
         </div>
-
         <div className="hidden md:flex w-24 bg-slate-900 flex-col items-center py-6 shadow-2xl z-20 shrink-0 relative">
           <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-3.5 rounded-2xl mb-8 shadow-lg shadow-blue-900/50"><Zap className="text-white" size={28} /></div>
-          <div className="flex flex-col gap-6 w-full items-center">
-            <button className={`p-3.5 rounded-2xl relative transition-all duration-300 ${isRedAlert ? 'bg-red-500 text-white animate-bounce shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white'}`}><Crosshair size={26} /></button>
-          </div>
+          <div className="flex flex-col gap-6 w-full items-center"><button className={`p-3.5 rounded-2xl relative transition-all duration-300 ${isRedAlert ? 'bg-red-500 text-white animate-bounce shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white'}`}><Crosshair size={26} /></button></div>
         </div>
 
         <div className="w-full md:w-[480px] bg-white border-r border-slate-200 flex flex-col h-[50vh] md:h-full z-10 shadow-xl shrink-0">
@@ -764,14 +769,11 @@ export default function App() {
              <div className="text-xs font-bold text-slate-500 uppercase tracking-widest"><Building size={14} className="inline mr-1 -mt-0.5"/> {activeVenue.name}</div>
              <button onClick={handleLogout} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold active:scale-95 shadow-sm"><LogOut size={14}/> LOGOUT</button>
           </div>
-
           <div className={`p-5 md:p-6 border-b shrink-0 transition-colors duration-300 ${isRedAlert ? 'bg-red-600 border-red-700 text-white shadow-inner' : 'bg-white border-slate-100'}`}>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3">
-                {isRedAlert && <AlertTriangle size={28} className="animate-pulse" />} 
-                {isNeighborhood ? 'Community Incidents' : 'Active Incidents'}
+                {isRedAlert && <AlertTriangle size={28} className="animate-pulse" />} {isNeighborhood ? 'Community Incidents' : 'Active Incidents'}
             </h1>
           </div>
-          
           <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-200 flex justify-between items-center shrink-0">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Prioritized Queue</span>
             <span className={`px-2.5 py-1 rounded-md text-xs font-black shadow-sm ${isRedAlert ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{venueAlerts.length}</span>
@@ -785,15 +787,12 @@ export default function App() {
                 <p className="text-sm mt-1 font-medium text-slate-400">No active incidents detected.</p>
               </div>
             )}
-
             {venueAlerts.map(alert => {
               const isMuted = mutedAlerts.includes(alert.id);
               return (
               <div key={alert.id} className={`bg-white p-5 rounded-[1.5rem] shadow-sm border ${isMuted ? 'border-slate-200 opacity-80' : 'border-red-300 shadow-red-500/10'} hover:shadow-md transition-all group`}>
                 {alert.network === 'LoRa Radio Mesh' && (
-                   <div className="bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md mb-4 flex items-center gap-1.5 w-max shadow-sm border border-purple-200">
-                      <WifiOff size={12} /> {alert.network} (Offline)
-                   </div>
+                   <div className="bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md mb-4 flex items-center gap-1.5 w-max shadow-sm border border-purple-200"><WifiOff size={12} /> {alert.network} (Offline)</div>
                 )}
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3.5">
@@ -834,16 +833,13 @@ export default function App() {
         <div className="flex-grow p-4 md:p-6 flex flex-col h-[50vh] md:h-full overflow-hidden bg-slate-100">
           <div className="w-full h-full bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col relative p-6">
              <div className="absolute top-6 left-6 bg-slate-900/90 backdrop-blur text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 z-10 border border-slate-700"><Building size={14} className="text-blue-400"/> Facility Overview</div>
-             
              <div className="flex-grow flex items-center justify-center overflow-auto p-4 custom-scrollbar bg-slate-50/50 rounded-2xl mt-12 border border-slate-100">
                 <div className="flex flex-wrap justify-center gap-4 max-w-4xl">
                    {activeVenue.rooms?.map(rId => {
                      const isAlert = venueAlerts.some(a => a.roomId === rId);
                      return (
                         <div key={rId} className={`relative flex flex-col items-center justify-center border-2 rounded-[1.5rem] transition-all duration-300 p-4 min-w-[110px] min-h-[110px] shadow-sm ${isAlert ? 'border-red-500 bg-red-50 shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-pulse scale-105 z-10' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
-                           <span className={`font-black text-center ${isAlert ? 'text-red-700 text-2xl tracking-tight' : 'text-slate-500 text-xs'}`} title={rId}>
-                              {rId.length > 20 && !isAlert ? rId.substring(0, 17) + '...' : rId}
-                           </span>
+                           <span className={`font-black text-center ${isAlert ? 'text-red-700 text-2xl tracking-tight' : 'text-slate-500 text-xs'}`} title={rId}>{rId.length > 20 && !isAlert ? rId.substring(0, 17) + '...' : rId}</span>
                            {isAlert && <AlertTriangle size={24} className="text-red-600 mt-2" />}
                         </div>
                      )
@@ -870,6 +866,7 @@ export default function App() {
 
     const isLoRa = activeResponderAlert.network === 'LoRa Radio Mesh';
     
+    // NEW MAP URL FIX
     const memoizedMap = useMemo(() => {
        if (mapMode === 'floorplan') {
          return (
@@ -880,9 +877,7 @@ export default function App() {
                    <div className="absolute flex flex-col items-center justify-center z-10">
                      <div className="w-20 h-20 border-2 border-red-500/80 rounded-full absolute animate-ping"></div>
                      <div className="w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_20px_#ef4444]"></div>
-                     <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
-                       {activeResponderAlert.roomId}
-                     </div>
+                     <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">{activeResponderAlert.roomId}</div>
                    </div>
                  </div>
               ) : (
@@ -893,9 +888,7 @@ export default function App() {
                        <div className="absolute flex flex-col items-center justify-center z-10">
                          <div className="w-20 h-20 border-2 border-red-500/80 rounded-full absolute animate-ping"></div>
                          <div className="w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_20px_#ef4444]"></div>
-                         <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
-                           {activeResponderAlert.roomId}
-                         </div>
+                         <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">{activeResponderAlert.roomId}</div>
                        </div>
                        <div className="absolute bottom-4 right-4 text-xs text-blue-500/50 font-bold">NO FLOORPLAN UPLOADED</div>
                     </div>
@@ -905,15 +898,12 @@ export default function App() {
          );
        }
 
-const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;       return (
+       // --- CORRECTED GOOGLE MAPS EMBED URL ---
+       const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
+       
+       return (
          <div className="flex-grow relative flex bg-black overflow-hidden w-full h-full">
-            <iframe 
-               title="Tactical Map"
-               src={mapUrl}
-               className="absolute inset-0 w-full h-full border-0 opacity-80" 
-               style={{ filter: "sepia(20%) hue-rotate(180deg) saturate(150%) brightness(80%)" }}
-               allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-            ></iframe>
+            <iframe title="Tactical Map" src={mapUrl} className="absolute inset-0 w-full h-full border-0 opacity-80" style={{ filter: "sepia(20%) hue-rotate(180deg) saturate(150%) brightness(80%)" }} allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
                <div className="absolute flex flex-col items-center justify-center z-10">
@@ -921,9 +911,7 @@ const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.
                  <div className="w-[100vw] h-px bg-red-500/30 absolute"></div>
                  <div className="w-px h-[100vh] bg-red-500/30 absolute"></div>
                  <div className="w-3 h-3 bg-red-500 rounded-full z-10 shadow-[0_0_15px_#ef4444]"></div>
-                 <div className="absolute top-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
-                   OBJ: {activeResponderAlert.roomId}
-                 </div>
+                 <div className="absolute top-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">OBJ: {activeResponderAlert.roomId}</div>
                </div>
             </div>
          </div>
@@ -955,23 +943,15 @@ const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.
           <div className="w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto custom-scrollbar shrink-0 h-[45vh] lg:h-full">
             <div className="bg-slate-900/80 backdrop-blur p-6 border border-slate-800 rounded-2xl relative overflow-hidden shrink-0 shadow-2xl">
               <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none"><Crosshair size={100} /></div>
-              
-              {isLoRa && (
-                 <div className="bg-purple-600/20 border border-purple-500/50 text-purple-400 text-[10px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-2 mb-5">
-                    <WifiOff size={14}/> LORA OFFLINE MESH ROUTING
-                 </div>
-              )}
-
+              {isLoRa && (<div className="bg-purple-600/20 border border-purple-500/50 text-purple-400 text-[10px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-2 mb-5"><WifiOff size={14}/> LORA OFFLINE MESH ROUTING</div>)}
               <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-3`}>Target Location</h3>
               <div className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight leading-none">{activeResponderAlert.roomId}</div>
               <div className="text-sm font-bold text-slate-400 mb-6 mt-2">{activeVenue.name}</div>
-              
               <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-3 mt-4`}>Incident Profile</h3>
               <div className="bg-black/50 p-4 rounded-xl border border-slate-800 text-slate-200">
                 <p className="mb-3 text-sm font-medium leading-relaxed">{activeResponderAlert.summary}</p>
                 <div className="text-[10px] text-slate-500 font-bold uppercase flex items-center gap-2 border-t border-slate-800/80 pt-3 mt-4">
-                   {activeResponderAlert.source?.includes('IoT') ? <Cpu size={14} className="text-blue-500"/> : <User size={14} className="text-slate-400"/>}
-                   Source: {activeResponderAlert.source}
+                   {activeResponderAlert.source?.includes('IoT') ? <Cpu size={14} className="text-blue-500"/> : <User size={14} className="text-slate-400"/>} Source: {activeResponderAlert.source}
                 </div>
               </div>
             </div>
