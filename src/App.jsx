@@ -69,6 +69,7 @@ async function analyzeEmergency(text) {
   }
 }
 
+// --- Professional Sonar Ping Audio ---
 const triggerHardwareAlarm = () => {
   if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
   try {
@@ -99,7 +100,7 @@ const notifyStaff = (alert) => {
   }
 };
 
-// --- NEW: Slide To Cancel Component ---
+// --- Slide To Cancel Component ---
 const SlideToCancel = ({ onCancel }) => {
   const [value, setValue] = useState(0);
 
@@ -127,6 +128,7 @@ const SlideToCancel = ({ onCancel }) => {
   );
 };
 
+// --- Isolated Countdown Timer ---
 const CountdownTimer = ({ endTime, isLoRa }) => {
   const [timeLeft, setTimeLeft] = useState(Math.max(0, Math.floor((endTime - Date.now()) / 1000)));
   useEffect(() => {
@@ -278,7 +280,7 @@ export default function App() {
 
   const handleVoiceInput = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return alert("Your browser does not support Voice-to-Text.");
+    if (!SpeechRecognition) return alert("Your browser does not support Voice-to-Text. Please type your message.");
     const recognition = new SpeechRecognition();
     recognition.onstart = () => setIsRecording(true);
     recognition.onresult = (e) => setCustomText(e.results[0][0].transcript);
@@ -332,21 +334,36 @@ export default function App() {
           <div className="flex flex-col items-center mb-8">
             <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-4 rounded-2xl mb-4 shadow-[0_0_30px_rgba(37,99,235,0.4)]"><Zap size={32} className="text-white" /></div>
             <h1 className="text-3xl font-black text-white tracking-tight">BeaconNet</h1>
+            <p className="text-slate-400 text-sm font-medium mt-1">Unified Emergency Mesh</p>
           </div>
-          <div className="flex gap-2 bg-slate-900/50 p-1.5 rounded-xl mb-6">
-            <button onClick={() => setLoginType('guest')} className={`flex-1 py-2 text-sm font-bold rounded-lg ${loginType === 'guest' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>Citizen</button>
-            <button onClick={() => setLoginType('staff')} className={`flex-1 py-2 text-sm font-bold rounded-lg ${loginType === 'staff' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>Command</button>
-            <button onClick={() => setLoginType('admin')} className={`flex-1 py-2 text-sm font-bold rounded-lg ${loginType === 'admin' ? 'bg-blue-600 text-white' : 'text-slate-500'}`}>Admin</button>
+          <div className="flex gap-2 bg-slate-900/50 p-1.5 rounded-xl mb-6 border border-slate-700/50">
+            <button onClick={() => {setLoginType('guest'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'guest' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Citizen</button>
+            <button onClick={() => {setLoginType('staff'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'staff' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Command</button>
+            <button onClick={() => {setLoginType('admin'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Admin</button>
           </div>
           <div className="space-y-4">
             {loginType !== 'admin' && (
-              <div><input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="Zone Code (e.g. VEGAS24)" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 px-4 text-white font-mono" /></div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Zone Code</label>
+                <div className="mt-1 relative group">
+                  <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
+                  <input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="e.g. VEGAS24" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none uppercase font-mono transition-all" />
+                </div>
+              </div>
             )}
             {(loginType === 'staff' || loginType === 'admin') && (
-              <div><input type="password" value={staffPin} onChange={e => setStaffPin(e.target.value)} placeholder="Security PIN" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 px-4 text-white" /></div>
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Security PIN</label>
+                <div className="mt-1 relative group">
+                  <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
+                  <input type="password" value={staffPin} onChange={e => setStaffPin(e.target.value)} placeholder={loginType === 'admin' ? "Demo: 9999" : "Demo: 1234"} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                </div>
+              </div>
             )}
-            {error && <div className="text-red-400 text-sm">{error}</div>}
-            <button onClick={handleLogin} className="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl mt-4">Connect to Mesh</button>
+            {error && <div className="text-red-400 text-sm font-medium bg-red-900/20 p-3.5 rounded-xl border border-red-500/30 flex items-start gap-2 animate-in fade-in zoom-in duration-200"><AlertTriangle size={18} className="shrink-0 mt-0.5" /> {error}</div>}
+            <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl mt-4 transition-all shadow-lg shadow-blue-900/50 flex justify-center items-center gap-2">
+               Connect to Mesh <ChevronRight size={18} />
+            </button>
           </div>
           {venues.length === 0 && <button onClick={seedDemoVenues} className="w-full mt-6 bg-emerald-600 text-white font-bold py-3.5 rounded-xl">Seed Demo Data</button>}
         </div>
@@ -360,17 +377,14 @@ export default function App() {
     const [editingVenueId, setEditingVenueId] = useState(null);
     const [isLocating, setIsLocating] = useState(false);
     
-    // NEW: Visual Pin Drop Interaction
-    const handleImageClick = (e) => {
-      // Simulate dropping a pin and asking for room name
-      const roomName = window.prompt("Enter a Zone or Room Name for this location:");
-      if (roomName) {
-        setFormData(prev => ({
-          ...prev,
-          roomsStr: prev.roomsStr ? prev.roomsStr + '\n' + roomName : roomName
-        }));
-      }
-    };
+    // Hardware Simulator State
+    const [iotRoom, setIotRoom] = useState(activeVenue?.rooms?.[0] || '');
+    const [iotType, setIotType] = useState('Fire');
+    const [iotDevice, setIotDevice] = useState('LoRa Smart Smoke Detector');
+
+    // Smart Generator State
+    const [baseName, setBaseName] = useState('');
+    const [subZoneInput, setSubZoneInput] = useState('Kitchen, Master Bedroom, Living Room, Guest Bath, Balcony');
 
     useEffect(() => { if (venues.length > 0 && !activeVenue) setActiveVenue(venues[0]); }, [venues]);
 
@@ -392,38 +406,99 @@ export default function App() {
       setEditingVenueId(venue.id); window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
+    const handleCSVUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => setFormData(prev => ({...prev, roomsStr: evt.target.result}));
+      reader.readAsText(file);
+    };
+
+    const handleImageClick = (e) => {
+      const roomName = window.prompt("Enter a Zone or Room Name for this pin drop location:");
+      if (roomName) {
+        setFormData(prev => ({
+          ...prev,
+          roomsStr: prev.roomsStr ? prev.roomsStr + '\n' + roomName : roomName
+        }));
+      }
+    };
+
+    const handleGenerateZones = () => {
+       if (!baseName.trim()) return alert("Please enter a Base Address or Building name first.");
+       if (!subZoneInput.trim()) return alert("Please enter at least one sub-zone.");
+       
+       const subs = subZoneInput.split(',').map(s => s.trim()).filter(s => s);
+       const generatedText = subs.map(sub => `${baseName.trim()} - ${sub}`).join('\n');
+       
+       setFormData(prev => ({
+         ...prev,
+         roomsStr: prev.roomsStr ? prev.roomsStr + '\n' + generatedText : generatedText
+       }));
+       setBaseName(''); 
+    };
+
+    const handleAutoDetectGPS = (e) => {
+        e.preventDefault();
+        if ("geolocation" in navigator) {
+            setIsLocating(true);
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setFormData(prev => ({...prev, lat: position.coords.latitude.toFixed(6), lng: position.coords.longitude.toFixed(6)}));
+                    setIsLocating(false);
+                },
+                (error) => { alert("GPS Error. Ensure permissions are granted."); setIsLocating(false); },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
+            );
+        } else { alert("GPS Geolocation is not supported by your browser."); }
+    };
+
     return (
       <div className="min-h-screen bg-slate-50 p-4 md:p-8 overflow-y-auto font-sans">
          <div className="max-w-5xl mx-auto">
             <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
                <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Zap className="text-blue-600"/> Platform Admin</h1>
-               <button onClick={handleLogout} className="flex items-center gap-2 bg-red-50 text-red-600 px-5 py-2.5 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all"><LogOut size={18}/> Logout</button>
+               <button onClick={handleLogout} className="flex items-center gap-2 bg-red-50 text-red-600 px-5 py-2.5 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all active:scale-95"><LogOut size={18}/> Logout</button>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
                   <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">Deploy Infrastructure</h2>
-                    {editingVenueId && <button type="button" onClick={() => setEditingVenueId(null)} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel Edit</button>}
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                      {editingVenueId ? <><Edit size={22} className="text-blue-500"/> Edit Infrastructure</> : <><Plus size={22} className="text-blue-500"/> Deploy Infrastructure</>}
+                    </h2>
+                    {editingVenueId && <button type="button" onClick={() => {setEditingVenueId(null); setFormData({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '', floorplanUrl: '' })}} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel Edit</button>}
                   </div>
 
                   <form onSubmit={handleSave} className="space-y-5">
                      <div className="flex gap-4">
-                         <div className="flex-1"><input required type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl" placeholder="Zone Name" /></div>
-                         <div className="flex-1"><input required type="text" value={formData.code} disabled={!!editingVenueId} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border rounded-xl font-mono uppercase disabled:opacity-50" placeholder="CODE" /></div>
+                         <div className="flex-1">
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Type</label>
+                           <select value={formData.venueType} onChange={e=>setFormData({...formData, venueType: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700">
+                               <option value="resort">Hospitality / Resort</option>
+                               <option value="neighborhood">Residential / Municipality</option>
+                           </select>
+                         </div>
+                         <div className="flex-1">
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Zone Name</label>
+                           <input required type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="e.g. Oak Creek" />
+                         </div>
                      </div>
                      
                      <div className="flex gap-4">
-                            <div className="flex-1"><input required type="text" value={formData.lat} onChange={e=>setFormData({...formData, lat: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" placeholder="Latitude" /></div>
-                            <div className="flex-1"><input required type="text" value={formData.lng} onChange={e=>setFormData({...formData, lng: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" placeholder="Longitude" /></div>
+                         <div className="w-1/3">
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Access Code</label>
+                           <input required type="text" value={formData.code} disabled={!!editingVenueId} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-sm uppercase tracking-widest text-slate-800 disabled:opacity-50" placeholder="OAKCREEK" />
+                         </div>
+                         <div className="flex-1">
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Floor Plan Image Link (Optional)</label>
+                           <div className="relative">
+                             <ImageIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                             <input type="url" value={formData.floorplanUrl} onChange={e=>setFormData({...formData, floorplanUrl: e.target.value})} className="w-full p-3 pl-9 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm" placeholder="https://imgur.com/your-blueprint.png" />
+                           </div>
+                         </div>
                      </div>
 
-                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Floor Plan Image URL</label>
-                        <input type="url" value={formData.floorplanUrl} onChange={e=>setFormData({...formData, floorplanUrl: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" placeholder="https://..." />
-                     </div>
-
-                     {/* Visual Drag-and-Drop Setup Simulation */}
                      {formData.floorplanUrl && (
                         <div className="bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl p-2 text-center relative overflow-hidden group cursor-pointer" onClick={handleImageClick} title="Click to add a room zone!">
                            <img src={formData.floorplanUrl} alt="Preview" className="max-h-[150px] mx-auto opacity-70 group-hover:opacity-100 transition-opacity" />
@@ -432,32 +507,116 @@ export default function App() {
                            </div>
                         </div>
                      )}
+                     
+                     <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                        <div className="flex justify-between items-center mb-3">
+                           <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Geographic Bounds</label>
+                           <button onClick={handleAutoDetectGPS} type="button" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-700 active:scale-95 transition-all font-bold shadow-sm">
+                              {isLocating ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <GpsIcon size={14}/>} Auto-Detect
+                           </button>
+                        </div>
+                        <div className="flex gap-4">
+                            <div className="flex-1"><input required type="text" value={formData.lat} onChange={e=>setFormData({...formData, lat: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="Lat (e.g. 36.112)" /></div>
+                            <div className="flex-1"><input required type="text" value={formData.lng} onChange={e=>setFormData({...formData, lng: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="Lng (e.g. -115.176)" /></div>
+                        </div>
+                     </div>
+
+                     {/* SMART ZONE GENERATOR */}
+                     <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                        <label className="block text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Layers size={14}/> Smart Sub-Zone Generator</label>
+                        <p className="text-[10px] text-indigo-500 mb-3">Instantly generate multiple sub-rooms for a single building or address.</p>
+                        
+                        <div className="space-y-3">
+                           <div>
+                              <input type="text" value={baseName} onChange={e => setBaseName(e.target.value)} className="w-full p-2.5 bg-white border border-indigo-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-medium" placeholder="Base Address (e.g., Tower A - Apt 102)" />
+                           </div>
+                           <div>
+                              <input type="text" value={subZoneInput} onChange={e => setSubZoneInput(e.target.value)} className="w-full p-2.5 bg-white border border-indigo-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-medium text-slate-600" placeholder="Comma separated sub-zones" />
+                           </div>
+                           <button type="button" onClick={handleGenerateZones} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition-all active:scale-95 shadow-sm">
+                             Generate & Add to List ↓
+                           </button>
+                        </div>
+                     </div>
 
                      <div>
-                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Zone List</label>
-                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border rounded-xl text-sm" rows={5}></textarea>
+                       <div className="flex justify-between items-center mb-1.5">
+                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Final Zone List</label>
+                         <div className="relative">
+                           <input type="file" accept=".csv,.txt" onChange={handleCSVUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                           <button type="button" className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded font-bold flex items-center gap-1 pointer-events-none"><UploadCloud size={14}/> Bulk Upload CSV</button>
+                         </div>
+                       </div>
+                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm leading-relaxed" 
+                       placeholder="Final output will appear here..." rows={6}></textarea>
                      </div>
-                     <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600">Save</button>
+                     <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-md mt-2">
+                       {editingVenueId ? 'Update Infrastructure' : 'Initialize Deployment'}
+                     </button>
                   </form>
                </div>
 
                <div className="space-y-6">
+                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 md:p-8 rounded-3xl shadow-xl border border-slate-700 text-slate-200 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none"><Cpu size={120} /></div>
+                      <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-white relative z-10"><Cpu size={22} className="text-blue-400"/> Hardware Simulator</h2>
+                      {activeVenue ? (
+                        <div className="space-y-5 relative z-10">
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Target Point</label>
+                                    <select value={iotRoom} onChange={e => setIotRoom(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
+                                        {activeVenue.rooms?.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Sensor Type</label>
+                                    <select value={iotType} onChange={e => setIotType(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
+                                        <option value="Fire">Fire / Flood</option>
+                                        <option value="Security">Security / Panic</option>
+                                        <option value="Medical">Medical Emergency</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Network Node</label>
+                                <select value={iotDevice} onChange={e => setIotDevice(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
+                                    <option>LoRa Basement Flood Sensor</option>
+                                    <option>LoRa Smart Smoke Detector</option>
+                                    <option>Offline LoRa Panic Button</option>
+                                </select>
+                            </div>
+
+                            <button onClick={() => triggerAlert(iotType, false, `IoT Sensor (${iotDevice})`, iotRoom)} disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl mt-2 flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+                                {isSubmitting ? 'Transmitting...' : 'Trigger Hardware Fault'}
+                            </button>
+                        </div>
+                      ) : <div className="text-yellow-400 text-sm font-medium bg-yellow-900/30 p-4 rounded-xl border border-yellow-700/50">Deploy an infrastructure block first to use the simulator.</div>}
+                  </div>
+
                   <div>
                       <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800"><Building size={22} className="text-slate-500"/> Active Networks</h2>
                       {venues.map(v => (
-                        <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-3">
+                        <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-3 group hover:border-blue-300 transition-colors">
                             <div className="flex justify-between items-center">
                               <div>
-                                <h3 className="font-bold text-lg">{v.name}</h3>
-                                <span className="bg-slate-100 text-slate-600 text-xs font-mono font-bold px-2 py-1 rounded-md">{v.code}</span>
+                                <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                                  {v.venueType === 'neighborhood' ? <Home size={18} className="text-slate-400" /> : <Building size={18} className="text-slate-400" />}
+                                  {v.name}
+                                </h3>
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <span className="bg-slate-100 text-slate-600 text-xs font-mono font-bold px-2 py-1 rounded-md border border-slate-200">CODE: {v.code}</span>
+                                  <span className="text-xs text-slate-400 flex items-center gap-1"><MapPin size={12}/> {v.rooms?.length || 0} Zones</span>
+                                </div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => handleEdit(v)} className="text-blue-500 p-2"><Edit size={20}/></button>
-                                <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, v.id))} className="text-red-500 p-2"><Trash2 size={20}/></button>
+                                <button onClick={() => handleEdit(v)} title="Edit Infrastructure" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-2.5 rounded-xl transition-colors"><Edit size={20}/></button>
+                                <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, v.id))} title="Delete Infrastructure" className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl transition-colors"><Trash2 size={20}/></button>
                               </div>
                             </div>
                         </div>
                       ))}
+                      {venues.length === 0 && <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 text-slate-400 text-sm">No networks deployed yet.</div>}
                   </div>
                </div>
             </div>
@@ -468,7 +627,7 @@ export default function App() {
 
   // --- 3. Guest/Resident Interface ---
   const GuestInterface = () => {
-    // NEW: Language detection dictionary
+    // Language detection dictionary
     const isSpanish = navigator.language.startsWith('es');
     const isHindi = navigator.language.startsWith('hi');
     const uiText = {
@@ -481,8 +640,8 @@ export default function App() {
     };
 
     const currentRoomAlert = alerts.find(a => a.venueId === activeVenue.id && a.roomId === guestRoomId && a.status === 'active');
+    const isNeighborhood = activeVenue.venueType === 'neighborhood';
 
-    // NEW: Calming UI for Medical
     if (currentRoomAlert) {
       const isMedical = currentRoomAlert.type === 'Medical';
       
@@ -490,7 +649,6 @@ export default function App() {
         <div className={`flex flex-col items-center justify-center min-h-screen w-full p-6 text-center text-white overflow-hidden font-sans transition-colors duration-1000 ${isMedical ? 'bg-slate-900' : 'bg-slate-900'}`}>
           
           {isMedical ? (
-            // Breathe With Me Animation
             <div className="relative mb-12 mt-4 flex items-center justify-center">
                <div className="absolute w-48 h-48 bg-blue-500/20 rounded-full animate-[ping_4s_cubic-bezier(0.4,0,0.6,1)_infinite]"></div>
                <div className="absolute w-36 h-36 bg-blue-500/40 rounded-full animate-[ping_4s_cubic-bezier(0.4,0,0.6,1)_infinite] animation-delay-1000"></div>
@@ -499,10 +657,9 @@ export default function App() {
                </div>
             </div>
           ) : (
-            // Standard Panic UI
             <div className="relative mb-8 mt-4">
                <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-20 scale-150"></div>
-               <div className="bg-gradient-to-br from-red-500 to-red-700 p-8 rounded-full shadow-[0_0_50px_rgba(220,38,38,0.6)] z-10 relative"><Radio size={48} className="animate-pulse text-white" /></div>
+               <div className="bg-gradient-to-br from-red-500 to-red-700 p-8 rounded-full shadow-[0_0_50px_rgba(220,38,38,0.6)] z-10 relative border border-red-400/50"><Radio size={48} className="animate-pulse text-white" /></div>
             </div>
           )}
 
@@ -514,7 +671,7 @@ export default function App() {
              <p className="text-slate-300 mb-8 max-w-sm text-lg font-medium">Response teams are routing to <span className="text-white font-bold block mt-1">{guestRoomId}</span></p>
           )}
           
-          {/* Slider replaces the accidental-click button */}
+          {/* Slide to Cancel Integration */}
           <div className="mt-auto mb-12 w-full flex justify-center">
              <SlideToCancel onCancel={() => resolveAlert(currentRoomAlert.id)} />
           </div>
@@ -525,54 +682,78 @@ export default function App() {
     return (
       <div className="w-full h-full bg-slate-100 overflow-y-auto font-sans">
         <div className="max-w-md mx-auto min-h-full bg-white shadow-2xl flex flex-col relative">
+          
           <div className="p-6 md:p-8 text-center shrink-0 bg-white sticky top-0 z-20 shadow-sm">
             <div className="flex justify-between items-start mb-4">
                <div className="inline-flex items-center px-3 py-1.5 bg-blue-50 rounded-xl border border-blue-100">
                  <Zap className="text-blue-600 mr-1.5" size={16} /><span className="font-bold text-xs tracking-tight text-blue-900">BeaconNet Node</span>
                </div>
-               <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 bg-slate-50 p-2 rounded-lg"><LogOut size={18}/></button>
+               <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 p-2 rounded-lg transition-colors active:scale-95"><LogOut size={18}/></button>
             </div>
             <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">{activeVenue.name}</h1>
-            <div className="mt-4 flex items-center justify-center bg-slate-50 p-3 rounded-xl border border-slate-200">
-              <MapPin size={16} className="text-slate-400 mr-2"/>
+            <div className="mt-4 flex items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors p-3 rounded-xl border border-slate-200 group">
+              <MapPin size={16} className="text-slate-400 mr-2 group-focus-within:text-blue-500 transition-colors shrink-0"/>
               <select value={guestRoomId} onChange={handleRoomChange} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full appearance-none truncate">
-                <option value="" disabled>Select Location...</option>
+                <option value="" disabled>Select {isNeighborhood ? 'Your Specific Zone/Address' : 'Your Specific Zone'}...</option>
                 {activeVenue.rooms?.map(id => <option key={id} value={id}>{id}</option>)}
               </select>
             </div>
           </div>
 
           <div className="flex-grow px-6 py-6 space-y-4 bg-slate-50/50">
-            <button onClick={() => triggerAlert('Medical')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white border border-slate-200 rounded-[2rem] p-4 flex items-center gap-4 shadow-sm hover:border-red-400">
-              <div className="bg-red-50 text-red-600 p-4 rounded-[1.5rem] shrink-0"><Activity size={28} /></div>
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 p-4 rounded-3xl flex items-center justify-between shadow-sm mb-4">
+              <div className="flex items-center gap-3">
+                 <div className={`p-2.5 rounded-2xl transition-colors ${useLoraMesh ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' : 'bg-white text-purple-400 border border-purple-100'}`}>
+                    <WifiOff size={20} />
+                 </div>
+                 <div>
+                    <h3 className="font-bold text-purple-900 text-sm">Internet Down?</h3>
+                    <p className="text-[10px] text-purple-600 font-semibold uppercase tracking-wider mt-0.5">Simulate LoRa Mesh</p>
+                 </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer active:scale-95 transition-transform">
+                <input type="checkbox" className="sr-only peer" checked={useLoraMesh} onChange={() => setUseLoraMesh(!useLoraMesh)} />
+                <div className="w-12 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              </label>
+            </div>
+
+            <button onClick={() => triggerAlert('Medical')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
+              <div className="bg-red-50 text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><Activity size={28} /></div>
               <div className="text-left flex-grow">
                 <h2 className="text-xl font-black text-slate-800">{uiText.med}</h2>
-                <p className="text-slate-500 text-xs font-medium">{uiText.desc1}</p>
+                <p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc1}</p>
               </div>
+              <ChevronRight size={24} className="text-slate-300 group-hover:text-red-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
-            <button onClick={() => triggerAlert('Fire')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white border border-slate-200 rounded-[2rem] p-4 flex items-center gap-4 shadow-sm hover:border-orange-400">
-              <div className="bg-orange-50 text-orange-600 p-4 rounded-[1.5rem] shrink-0"><Flame size={28} /></div>
+            <button onClick={() => triggerAlert('Fire')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-orange-50 border border-slate-200 hover:border-orange-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
+              <div className="bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><Flame size={28} /></div>
               <div className="text-left flex-grow">
                 <h2 className="text-xl font-black text-slate-800">{uiText.fire}</h2>
-                <p className="text-slate-500 text-xs font-medium">{uiText.desc2}</p>
+                <p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc2}</p>
               </div>
+              <ChevronRight size={24} className="text-slate-300 group-hover:text-orange-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
-            <button onClick={() => triggerAlert('Security')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white border border-slate-200 rounded-[2rem] p-4 flex items-center gap-4 shadow-sm hover:border-blue-400">
-              <div className="bg-blue-50 text-blue-600 p-4 rounded-[1.5rem] shrink-0"><ShieldAlert size={28} /></div>
+            <button onClick={() => triggerAlert('Security')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
+              <div className="bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><ShieldAlert size={28} /></div>
               <div className="text-left flex-grow">
                 <h2 className="text-xl font-black text-slate-800">{uiText.sec}</h2>
-                <p className="text-slate-500 text-xs font-medium">{uiText.desc3}</p>
+                <p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc3}</p>
               </div>
+              <ChevronRight size={24} className="text-slate-300 group-hover:text-blue-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
             <div className="bg-white p-5 rounded-[2rem] border border-slate-200 mt-8 shadow-sm">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 ml-1"><Zap size={12} className="inline text-blue-500"/> Custom Alert</label>
-              <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 items-center">
-                <button onClick={handleVoiceInput} className={`p-2 rounded-full ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500'}`}><Mic size={18} /></button>
-                <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Describe..." className="flex-grow p-2 text-sm bg-transparent outline-none" disabled={isSubmitting} />
-                <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold">Send</button>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 ml-1 flex items-center gap-1.5"><Zap size={12} className="text-blue-500"/> Custom AI Alert</label>
+              <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all items-center">
+                <button onClick={handleVoiceInput} className={`p-2 rounded-full transition-colors shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500 hover:bg-blue-100 hover:text-blue-600'}`}>
+                   <Mic size={18} />
+                </button>
+                <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Speak or type..." className="flex-grow p-2 text-sm font-medium bg-transparent text-slate-800 outline-none min-w-0" disabled={isSubmitting} />
+                <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold hover:bg-blue-600 disabled:opacity-50 transition-all active:scale-95 shrink-0 flex items-center justify-center min-w-[80px]">
+                  {isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Send'}
+                </button>
               </div>
             </div>
             <div className="h-12 w-full"></div>
@@ -586,56 +767,120 @@ export default function App() {
   const StaffDashboard = () => {
     const venueAlerts = alerts.filter(a => a.venueId === activeVenue.id && a.status === 'active');
     const isRedAlert = venueAlerts.length > 0;
+    const isNeighborhood = activeVenue.venueType === 'neighborhood';
 
     return (
       <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 overflow-hidden font-sans">
         {isRedAlert && <div className="absolute inset-0 border-[6px] border-red-500 pointer-events-none z-50 animate-pulse"></div>}
 
-        <div className="md:hidden w-full bg-slate-900 text-white p-4 flex justify-between items-center z-20"><Zap className="text-blue-500" size={20} /><button onClick={handleLogout}><LogOut size={14} /></button></div>
-        <div className="hidden md:flex w-24 bg-slate-900 flex-col items-center py-6 z-20"><div className="bg-blue-600 p-3.5 rounded-2xl mb-8"><Zap className="text-white" size={28} /></div></div>
+        <div className="md:hidden w-full bg-slate-900 text-white p-4 flex justify-between items-center shrink-0 z-20 shadow-lg">
+          <div className="flex items-center gap-2 font-black text-lg"><Zap className="text-blue-500" size={20} /> Command</div>
+          <button onClick={handleLogout} className="text-white hover:text-red-400 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-colors active:scale-95">
+            LOGOUT <LogOut size={14} />
+          </button>
+        </div>
 
-        <div className="w-full md:w-[480px] bg-white border-r flex flex-col h-[50vh] md:h-full z-10 shadow-xl">
-          <div className="hidden md:flex justify-between p-4 border-b bg-slate-50"><div className="text-xs font-bold text-slate-500"><Building size={14} className="inline mr-1"/> {activeVenue.name}</div><button onClick={handleLogout} className="text-xs font-bold text-slate-600"><LogOut size={14}/> LOGOUT</button></div>
-          <div className={`p-5 md:p-6 border-b ${isRedAlert ? 'bg-red-600 text-white' : 'bg-white'}`}><h1 className="text-2xl md:text-3xl font-black">Active Incidents</h1></div>
+        <div className="hidden md:flex w-24 bg-slate-900 flex-col items-center py-6 shadow-2xl z-20 shrink-0 relative">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-3.5 rounded-2xl mb-8 shadow-lg shadow-blue-900/50"><Zap className="text-white" size={28} /></div>
+          <div className="flex flex-col gap-6 w-full items-center">
+            <button className={`p-3.5 rounded-2xl relative transition-all duration-300 ${isRedAlert ? 'bg-red-500 text-white animate-bounce shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white'}`}>
+              <Crosshair size={26} />
+            </button>
+          </div>
+        </div>
+
+        <div className="w-full md:w-[480px] bg-white border-r border-slate-200 flex flex-col h-[50vh] md:h-full z-10 shadow-xl shrink-0">
+          <div className="hidden md:flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/80 backdrop-blur shrink-0">
+             <div className="text-xs font-bold text-slate-500 uppercase tracking-widest"><Building size={14} className="inline mr-1 -mt-0.5"/> {activeVenue.name}</div>
+             <button onClick={handleLogout} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95">
+                <LogOut size={14}/> LOGOUT
+             </button>
+          </div>
+
+          <div className={`p-5 md:p-6 border-b shrink-0 transition-colors duration-300 ${isRedAlert ? 'bg-red-600 border-red-700 text-white shadow-inner' : 'bg-white border-slate-100'}`}>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3">
+                {isRedAlert && <AlertTriangle size={28} className="animate-pulse" />} 
+                {isNeighborhood ? 'Community Incidents' : 'Active Incidents'}
+            </h1>
+          </div>
           
-          <div className="flex-grow overflow-y-auto bg-slate-50/50 p-4 space-y-4">
-            {venueAlerts.length === 0 && <div className="text-center text-slate-400 py-12">All systems secure.</div>}
+          <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-200 flex justify-between items-center shrink-0">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Prioritized Queue</span>
+            <span className={`px-2.5 py-1 rounded-md text-xs font-black shadow-sm ${isRedAlert ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{venueAlerts.length}</span>
+          </div>
+          
+          <div className="flex-grow overflow-y-auto bg-slate-50/50 p-4 space-y-4 custom-scrollbar">
+            {venueAlerts.length === 0 && (
+              <div className="text-center text-slate-400 py-12 flex flex-col items-center">
+                <div className="bg-slate-100 p-6 rounded-full mb-4 border border-slate-200"><Shield size={48} className="text-emerald-400/50" /></div>
+                <p className="font-bold text-lg text-slate-600">All systems secure.</p>
+                <p className="text-sm mt-1 font-medium text-slate-400">No active incidents detected.</p>
+              </div>
+            )}
 
             {venueAlerts.map(alert => {
               const isMuted = mutedAlerts.includes(alert.id);
               return (
-              <div key={alert.id} className={`bg-white p-5 rounded-[1.5rem] shadow-sm border ${isMuted ? 'border-slate-200 opacity-80' : 'border-red-300'}`}>
+              <div key={alert.id} className={`bg-white p-5 rounded-[1.5rem] shadow-sm border ${isMuted ? 'border-slate-200 opacity-80' : 'border-red-300 shadow-red-500/10'} hover:shadow-md transition-all group`}>
+                {alert.network === 'LoRa Radio Mesh' && (
+                   <div className="bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md mb-4 flex items-center gap-1.5 w-max shadow-sm border border-purple-200">
+                      <WifiOff size={12} /> {alert.network} (Offline)
+                   </div>
+                )}
                 <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-2xl text-white ${alert.severity === 'Critical' ? 'bg-red-500' : 'bg-orange-500'}`}>{alert.type === 'Medical' ? <Activity size={24} /> : <AlertTriangle size={24}/>}</div>
-                    <div className="min-w-0"><h3 className="font-black text-lg">{alert.roomId}</h3><p className="text-xs text-slate-500">{new Date(alert.timestamp).toLocaleTimeString()}</p></div>
+                  <div className="flex items-center gap-3.5">
+                    <div className={`p-3 rounded-2xl text-white shadow-md shrink-0 ${alert.severity === 'Critical' ? 'bg-red-500 shadow-red-500/30' : 'bg-orange-500 shadow-orange-500/30'}`}>
+                      {alert.type === 'Fire' ? <Flame size={24} /> : alert.type === 'Medical' ? <Activity size={24} /> : <ShieldAlert size={24} />}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-black text-slate-900 text-lg md:text-xl truncate tracking-tight" title={alert.roomId}>{alert.roomId}</h3>
+                      <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mt-0.5"><Clock size={12} className="text-slate-400"/> {new Date(alert.timestamp).toLocaleTimeString()}</p>
+                    </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
-                    <span className="text-[10px] font-black px-2 py-1 rounded bg-red-50 text-red-700">{alert.severity}</span>
-                    {isMuted && <span className="text-[9px] font-bold text-slate-400"><VolumeX size={10}/> Muted</span>}
+                    <span className={`text-[10px] md:text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-md shrink-0 shadow-sm border ${alert.severity === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>{alert.severity}</span>
+                    {isMuted && <span className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1"><VolumeX size={10}/> Muted</span>}
                   </div>
                 </div>
-                <div className="bg-slate-50 p-4 rounded-2xl mb-4"><p className="text-sm font-semibold">{alert.summary}</p></div>
+                <div className="bg-slate-50/80 p-4 rounded-2xl mb-4 border border-slate-100">
+                  <p className="text-sm font-semibold text-slate-700 leading-relaxed mb-3">{alert.summary}</p>
+                  <div className="flex items-center gap-2 text-xs text-slate-500 border-t border-slate-200 pt-3 font-medium">
+                    {alert.source?.includes('IoT') ? <Cpu size={14} className="text-blue-500" /> : <User size={14} className="text-slate-400" />}
+                    <span className="font-bold text-slate-600">Source:</span> {alert.source || 'Mobile App'}
+                  </div>
+                </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setCurrentRole('responder'); setActiveResponderAlert(alert); setResponderEndTime(Date.now() + 180000); }} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold">Tactical UI</button>
-                  <button onClick={() => toggleMute(alert.id)} className={`px-4 py-2.5 rounded-xl border ${isMuted ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-600'}`}>{isMuted ? <Volume2 size={16}/> : <VolumeX size={16}/>}</button>
-                  <button onClick={() => resolveAlert(alert.id)} className="px-5 bg-white border py-2.5 rounded-xl text-xs font-bold">Clear</button>
+                  <button onClick={() => { setCurrentRole('responder'); setActiveResponderAlert(alert); setResponderEndTime(Date.now() + 180000); }} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                    <MapIcon size={14} /> Tactical UI
+                  </button>
+                  <button onClick={() => toggleMute(alert.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm border ${isMuted ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
+                    {isMuted ? <Volume2 size={16}/> : <VolumeX size={16}/>}
+                  </button>
+                  <button onClick={() => resolveAlert(alert.id)} className="px-5 bg-white border border-slate-300 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-red-600 transition-colors shadow-sm active:scale-95">Clear</button>
                 </div>
               </div>
             )})}
           </div>
         </div>
-        <div className="flex-grow p-4 flex flex-col h-[50vh] md:h-full bg-slate-100">
-          <div className="w-full h-full bg-white rounded-3xl border shadow-sm flex items-center justify-center p-4">
-             <div className="flex flex-wrap justify-center gap-4">
-                {activeVenue.rooms?.map(rId => {
-                  const isAlert = venueAlerts.some(a => a.roomId === rId);
-                  return (
-                     <div key={rId} className={`flex flex-col items-center justify-center border-2 rounded-2xl p-4 w-28 h-28 ${isAlert ? 'border-red-500 bg-red-50 animate-pulse' : 'border-slate-200'}`}>
-                        <span className={`font-black text-center text-xs truncate w-full ${isAlert ? 'text-red-700 text-lg' : 'text-slate-500'}`} title={rId}>{rId}</span>
-                     </div>
-                  )
-                })}
+
+        <div className="flex-grow p-4 md:p-6 flex flex-col h-[50vh] md:h-full overflow-hidden bg-slate-100">
+          <div className="w-full h-full bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col relative p-6">
+             <div className="absolute top-6 left-6 bg-slate-900/90 backdrop-blur text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 z-10 border border-slate-700"><Building size={14} className="text-blue-400"/> Facility Overview</div>
+             
+             <div className="flex-grow flex items-center justify-center overflow-auto p-4 custom-scrollbar bg-slate-50/50 rounded-2xl mt-12 border border-slate-100">
+                <div className="flex flex-wrap justify-center gap-4 max-w-4xl">
+                   {activeVenue.rooms?.map(rId => {
+                     const isAlert = venueAlerts.some(a => a.roomId === rId);
+                     return (
+                        <div key={rId} className={`relative flex flex-col items-center justify-center border-2 rounded-[1.5rem] transition-all duration-300 p-4 min-w-[110px] min-h-[110px] shadow-sm ${isAlert ? 'border-red-500 bg-red-50 shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-pulse scale-105 z-10' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                           <span className={`font-black text-center ${isAlert ? 'text-red-700 text-2xl tracking-tight' : 'text-slate-500 text-xs'}`} title={rId}>
+                              {rId.length > 20 && !isAlert ? rId.substring(0, 17) + '...' : rId}
+                           </span>
+                           {isAlert && <AlertTriangle size={24} className="text-red-600 mt-2" />}
+                        </div>
+                     )
+                   })}
+                </div>
              </div>
           </div>
         </div>
@@ -645,66 +890,144 @@ export default function App() {
 
   // --- 5. Tactical / Responder HUD ---
   const ResponderView = () => {
-    if (!activeResponderAlert) return <div className="h-full bg-black text-slate-400 flex items-center justify-center"><button onClick={() => setCurrentRole('staff')} className="px-6 py-2 border rounded">RETURN TO COMMAND</button></div>;
+    if (!activeResponderAlert) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full bg-black text-slate-400 p-6 text-center font-mono w-full">
+          <Navigation size={64} className="mb-6 opacity-50" />
+          <p className="text-xl font-bold tracking-widest">NO ACTIVE RESPONDER UPLINK</p>
+          <button onClick={() => setCurrentRole('staff')} className="mt-8 px-6 py-2.5 border border-slate-700 hover:bg-slate-800 rounded-lg text-slate-300 font-bold active:scale-95 transition-all">RETURN TO COMMAND</button>
+        </div>
+      );
+    }
 
     const isLoRa = activeResponderAlert.network === 'LoRa Radio Mesh';
     
     const memoizedMap = useMemo(() => {
        if (mapMode === 'floorplan') {
          return (
-           <div className="flex-grow relative flex bg-[#0f172a] overflow-hidden items-center justify-center">
+           <div className="flex-grow relative flex bg-[#0f172a] overflow-hidden w-full h-full items-center justify-center">
               {activeVenue.floorplanUrl ? (
                  <div className="relative w-full h-full p-4 flex items-center justify-center">
-                   <img src={activeVenue.floorplanUrl} alt="Floorplan" className="max-w-full max-h-full object-contain opacity-80" />
+                   <img src={activeVenue.floorplanUrl} alt="Uploaded Floorplan" className="max-w-full max-h-full object-contain opacity-80 rounded-xl shadow-[0_0_50px_rgba(59,130,246,0.1)]" />
                    <div className="absolute flex flex-col items-center justify-center z-10">
-                     <div className="w-20 h-20 border-2 border-red-500 rounded-full absolute animate-ping"></div>
-                     <div className="w-4 h-4 bg-red-500 rounded-full z-10"></div>
+                     <div className="w-20 h-20 border-2 border-red-500/80 rounded-full absolute animate-ping"></div>
+                     <div className="w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_20px_#ef4444]"></div>
+                     <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
+                       {activeResponderAlert.roomId}
+                     </div>
                    </div>
                  </div>
               ) : (
-                 <div className="text-blue-500/50 font-bold">NO FLOORPLAN UPLOADED</div>
+                 <>
+                    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                    <div className="w-3/4 h-3/4 border-2 border-blue-500/30 relative flex items-center justify-center bg-blue-900/10 backdrop-blur-sm rounded-lg shadow-[0_0_50px_rgba(59,130,246,0.1)]">
+                       <Layers size={200} className="text-blue-500/10 absolute" />
+                       <div className="absolute flex flex-col items-center justify-center z-10">
+                         <div className="w-20 h-20 border-2 border-red-500/80 rounded-full absolute animate-ping"></div>
+                         <div className="w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_20px_#ef4444]"></div>
+                         <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
+                           {activeResponderAlert.roomId}
+                         </div>
+                       </div>
+                       <div className="absolute bottom-4 right-4 text-xs text-blue-500/50 font-bold">NO FLOORPLAN UPLOADED</div>
+                    </div>
+                 </>
               )}
            </div>
          );
        }
+
        const mapUrl = `https://maps.google.com/maps?q=$${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
        return (
-         <div className="flex-grow relative flex bg-black">
-            <iframe src={mapUrl} className="absolute inset-0 w-full h-full opacity-80" style={{ filter: "sepia(20%) hue-rotate(180deg) saturate(150%) brightness(80%)" }} allowFullScreen="" loading="lazy"></iframe>
+         <div className="flex-grow relative flex bg-black overflow-hidden w-full h-full">
+            <iframe 
+               title="Tactical Map"
+               src={mapUrl}
+               className="absolute inset-0 w-full h-full border-0 opacity-80" 
+               style={{ filter: "sepia(20%) hue-rotate(180deg) saturate(150%) brightness(80%)" }}
+               allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+            ></iframe>
+            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
+               <div className="absolute flex flex-col items-center justify-center z-10">
+                 <div className="w-16 h-16 border-2 border-red-500/80 rounded-full absolute"></div>
+                 <div className="w-[100vw] h-px bg-red-500/30 absolute"></div>
+                 <div className="w-px h-[100vh] bg-red-500/30 absolute"></div>
+                 <div className="w-3 h-3 bg-red-500 rounded-full z-10 shadow-[0_0_15px_#ef4444]"></div>
+                 <div className="absolute top-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
+                   OBJ: {activeResponderAlert.roomId}
+                 </div>
+               </div>
+            </div>
          </div>
        );
     }, [activeVenue.lat, activeVenue.lng, activeVenue.floorplanUrl, activeResponderAlert.roomId, mapMode]);
 
     return (
-      <div className="bg-[#0a0f16] h-full w-full text-slate-300 flex flex-col font-mono overflow-hidden">
-        <div className={`border-b p-3 flex justify-between items-center shadow-lg ${isLoRa ? 'bg-purple-900/20 border-purple-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
-          <div className="font-black text-xl text-red-500 tracking-widest uppercase">TACTICAL UPLINK</div>
-          <div className="flex gap-4 items-center">
+      <div className="bg-[#0a0f16] h-full w-full text-slate-300 flex flex-col font-mono selection:bg-red-500/30 overflow-hidden">
+        <div className={`border-b p-3 md:p-4 flex justify-between items-center shadow-lg shrink-0 ${isLoRa ? 'bg-purple-900/20 border-purple-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
+          <div className="flex items-center gap-3">
+            <div className={`${isLoRa ? 'bg-purple-600' : 'bg-red-600'} text-white p-2.5 rounded-lg shrink-0 shadow-lg`}><AlertTriangle size={24} /></div>
+            <div className="min-w-0">
+              <div className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} font-black text-sm md:text-2xl tracking-widest uppercase truncate`}>TACTICAL UPLINK</div>
+              <div className={`text-[10px] md:text-sm font-bold truncate ${isLoRa ? 'text-purple-400/70' : 'text-red-400/70'}`}>TOKEN: {activeResponderAlert.responderLink} • {activeVenue.name}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 md:gap-6">
+             <div className="hidden md:flex gap-2 mr-4">
+                <button onClick={() => setResponderEndTime(Date.now() + 180000)} className="bg-slate-800 text-xs text-white px-2 py-1 rounded hover:bg-slate-700 active:scale-95">+3M</button>
+                <button onClick={() => setResponderEndTime(Date.now() + 300000)} className="bg-slate-800 text-xs text-white px-2 py-1 rounded hover:bg-slate-700 active:scale-95">+5M</button>
+                <button onClick={() => setResponderEndTime(Date.now() + 600000)} className="bg-slate-800 text-xs text-white px-2 py-1 rounded hover:bg-slate-700 active:scale-95">+10M</button>
+             </div>
              <CountdownTimer endTime={responderEndTime} isLoRa={isLoRa} />
-             <button onClick={handleLogout} className="bg-slate-800 p-3 rounded-lg text-slate-400 hover:text-white"><LogOut size={20}/></button>
+             <button onClick={handleLogout} className="bg-slate-800 p-3 rounded-lg text-slate-400 hover:text-white hover:bg-red-600 transition-colors active:scale-95"><LogOut size={20}/></button>
           </div>
         </div>
 
-        <div className="p-4 flex-grow flex flex-col lg:flex-row gap-4 w-full">
-          <div className="w-full lg:w-1/3 flex flex-col gap-4">
-            <div className="bg-slate-900/80 p-6 border border-slate-800 rounded-2xl shadow-2xl">
-              <h3 className="text-red-500 text-xs uppercase font-bold mb-3">Target Location</h3>
-              <div className="text-4xl font-black text-white mb-2 leading-none">{activeResponderAlert.roomId}</div>
+        <div className="p-4 flex-grow flex flex-col lg:flex-row gap-4 w-full max-w-[1800px] mx-auto overflow-hidden">
+          <div className="w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto custom-scrollbar shrink-0 h-[45vh] lg:h-full">
+            <div className="bg-slate-900/80 backdrop-blur p-6 border border-slate-800 rounded-2xl relative overflow-hidden shrink-0 shadow-2xl">
+              <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none"><Crosshair size={100} /></div>
+              
+              {isLoRa && (
+                 <div className="bg-purple-600/20 border border-purple-500/50 text-purple-400 text-[10px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-2 mb-5">
+                    <WifiOff size={14}/> LORA OFFLINE MESH ROUTING
+                 </div>
+              )}
+
+              <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-3`}>Target Location</h3>
+              <div className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight leading-none">{activeResponderAlert.roomId}</div>
               <div className="text-sm font-bold text-slate-400 mb-6 mt-2">{activeVenue.name}</div>
+              
+              <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-3 mt-4`}>Incident Profile</h3>
               <div className="bg-black/50 p-4 rounded-xl border border-slate-800 text-slate-200">
-                <p className="text-sm font-medium">{activeResponderAlert.summary}</p>
+                <p className="mb-3 text-sm font-medium leading-relaxed">{activeResponderAlert.summary}</p>
+                <div className="text-[10px] text-slate-500 font-bold uppercase flex items-center gap-2 border-t border-slate-800/80 pt-3 mt-4">
+                   {activeResponderAlert.source?.includes('IoT') ? <Cpu size={14} className="text-blue-500"/> : <User size={14} className="text-slate-400"/>}
+                   Source: {activeResponderAlert.source}
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="w-full lg:w-2/3 bg-slate-900/80 border border-slate-800 rounded-2xl flex flex-col shadow-2xl overflow-hidden">
-            <div className="p-3 border-b border-slate-800 flex justify-between items-center bg-black/80">
+          <div className="w-full lg:w-2/3 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-col relative overflow-hidden shadow-2xl h-[55vh] lg:h-full shrink-0">
+            <div className="p-3 md:p-4 border-b border-slate-800 flex justify-between items-center bg-black/80 z-20 shrink-0">
               <div className="flex gap-2">
-                 <button onClick={() => setMapMode('satellite')} className={`text-xs font-bold px-3 py-1.5 rounded ${mapMode === 'satellite' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Satellite</button>
-                 <button onClick={() => setMapMode('floorplan')} className={`text-xs font-bold px-3 py-1.5 rounded ${mapMode === 'floorplan' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}>Floor Plan</button>
+                 <button onClick={() => setMapMode('satellite')} className={`text-[10px] md:text-xs font-bold px-3 py-1.5 rounded flex items-center gap-2 transition-colors ${mapMode === 'satellite' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}><MapPin size={14} /> Satellite</button>
+                 <button onClick={() => setMapMode('floorplan')} className={`text-[10px] md:text-xs font-bold px-3 py-1.5 rounded flex items-center gap-2 transition-colors ${mapMode === 'floorplan' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}><Layers size={14} /> Floor Plan</button>
               </div>
+              <span className={`${isLoRa ? 'text-purple-500' : 'text-green-500'} text-[10px] md:text-xs font-bold tracking-widest flex items-center gap-2`}>
+                 <span className={`w-2 h-2 rounded-full animate-pulse shadow-lg ${isLoRa ? 'bg-purple-500 shadow-purple-500' : 'bg-green-500 shadow-green-500'}`}></span>
+                 {isLoRa ? 'LORA MESH ACTIVE' : 'SYSTEM SECURE'}
+              </span>
             </div>
+            
             {memoizedMap}
+
+            <div className="bg-black/90 border-t border-slate-800 p-3 text-[10px] font-bold text-slate-500 flex justify-between z-20 shrink-0">
+              <span className="truncate mr-2 font-mono text-blue-400">LAT/LNG: {activeVenue.lat}, {activeVenue.lng}</span>
+              <span className="shrink-0 text-slate-600">ENC: AES-256-GCM</span>
+            </div>
           </div>
         </div>
       </div>
