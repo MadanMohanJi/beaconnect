@@ -10,11 +10,14 @@ import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken }
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 
 // --- Firebase Configuration ---
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'beaconnet-scalable';
+const firebaseConfig = {
+  apiKey: "AIzaSyAEqqnAFS2p4DU4_FCSoHvMni8TyBDlYF0",
+  authDomain: "flutter-ai-playground-452d7.firebaseapp.com",
+  projectId: "flutter-ai-playground-452d7",
+  storageBucket: "flutter-ai-playground-452d7.firebasestorage.app",
+  messagingSenderId: "761849874992",
+  appId: "1:761849874992:web:10ad3453a8370ae2e53bf5"
+};
 const ALERTS_COLLECTION = 'alerts_v5';
 const VENUES_COLLECTION = 'venues_v5';
 
