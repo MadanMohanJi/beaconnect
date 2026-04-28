@@ -5,7 +5,7 @@ import {
   Clock, MapPin, Radio, Settings, LogOut, ChevronRight,
   Crosshair, Zap, Building, KeyRound, Plus, Trash2, Cpu, 
   Link as LinkIcon, Crosshair as GpsIcon, Home, WifiOff, 
-  Mic, VolumeX, Volume2, Edit, UploadCloud, Layers
+  Mic, VolumeX, Volume2, Edit, UploadCloud, Layers, Image as ImageIcon
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
@@ -86,7 +86,6 @@ async function analyzeEmergency(text) {
   }
 }
 
-// --- Professional Sonar Ping Audio ---
 const triggerHardwareAlarm = () => {
   if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
   try {
@@ -125,7 +124,6 @@ const notifyStaff = (alert) => {
   }
 };
 
-// --- DYNAMIC ETA TIMER (ISOLATED TO PREVENT MAP BLINKING) ---
 const CountdownTimer = ({ endTime, isLoRa }) => {
   const [timeLeft, setTimeLeft] = useState(Math.max(0, Math.floor((endTime - Date.now()) / 1000)));
   
@@ -178,7 +176,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Persist Guest Room Selection
   useEffect(() => {
     if (currentRole === 'guest' && activeVenue) {
       const savedRoom = localStorage.getItem(`beaconnet_room_${activeVenue.id}`);
@@ -215,7 +212,6 @@ export default function App() {
 
       const activeAlerts = fetchedAlerts.filter(a => a.status === 'active' && a.venueId === activeVenue?.id);
       
-      // Only trigger notification for NEW alerts
       if ((currentRole === 'staff' || currentRole === 'responder') && activeAlerts.length > prevAlertCountRef.current) {
          notifyStaff(activeAlerts[0]);
          if (!mutedAlerts.includes(activeAlerts[0].id)) triggerHardwareAlarm();
@@ -231,7 +227,6 @@ export default function App() {
     return () => { unsubVenues(); unsubAlerts(); };
   }, [user, activeVenue?.id, activeResponderAlert?.id, currentRole, mutedAlerts]);
 
-  // Handle Repeating Alarms (Excluding Muted)
   useEffect(() => {
     let alarmInterval;
     const activeUnmutedAlerts = alerts.filter(a => a.status === 'active' && a.venueId === activeVenue?.id && !mutedAlerts.includes(a.id));
@@ -314,7 +309,6 @@ export default function App() {
     } catch (err) { console.error(err); }
   };
 
-  // --- Voice to Text ---
   const handleVoiceInput = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return alert("Your browser does not support Voice-to-Text. Please type your message.");
@@ -371,8 +365,8 @@ export default function App() {
       setError('');
       try {
         const demoVenues = [
-          { name: "Grand Horizon Resort", venueType: "resort", code: "VEGAS24", lat: "36.112634", lng: "-115.176746", rooms: ["301","302","303","304"] },
-          { name: "Oak Creek Neighborhood", venueType: "neighborhood", code: "OAKCREEK", lat: "34.0522", lng: "-118.2437", rooms: ["142 Maple St", "144 Maple St", "146 Maple St"] }
+          { name: "Grand Horizon Resort", venueType: "resort", code: "VEGAS24", lat: "36.112634", lng: "-115.176746", rooms: ["301","302","303","304"], floorplanUrl: "" },
+          { name: "Oak Creek Neighborhood", venueType: "neighborhood", code: "OAKCREEK", lat: "34.0522", lng: "-118.2437", rooms: ["142 Maple St", "144 Maple St", "146 Maple St"], floorplanUrl: "" }
         ];
         for (const v of demoVenues) { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION), v); }
         alert("Success! Demo Data has been injected into your Firebase.");
@@ -436,7 +430,8 @@ export default function App() {
 
   // --- 2. Admin Settings View ---
   const AdminSettings = () => {
-    const [formData, setFormData] = useState({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '' });
+    // Added floorplanUrl to the state
+    const [formData, setFormData] = useState({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '', floorplanUrl: '' });
     const [editingVenueId, setEditingVenueId] = useState(null);
     const [isLocating, setIsLocating] = useState(false);
     
@@ -449,7 +444,15 @@ export default function App() {
     const handleSave = async (e) => {
       e.preventDefault();
       const roomsArray = formData.roomsStr.split(/[\n,]+/).map(s => s.trim()).filter(s => s);
-      const payload = { name: formData.name, venueType: formData.venueType, code: formData.code.toUpperCase(), lat: formData.lat, lng: formData.lng, rooms: roomsArray };
+      const payload = { 
+        name: formData.name, 
+        venueType: formData.venueType, 
+        code: formData.code.toUpperCase(), 
+        lat: formData.lat, 
+        lng: formData.lng, 
+        floorplanUrl: formData.floorplanUrl, // Saving the new image URL
+        rooms: roomsArray 
+      };
       
       try {
         if (editingVenueId) {
@@ -459,7 +462,7 @@ export default function App() {
           await addDoc(collection(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION), payload);
           alert("Success! Infrastructure created.");
         }
-        setFormData({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '' });
+        setFormData({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '', floorplanUrl: '' });
         setEditingVenueId(null);
       } catch(err) { alert("Error: " + err.message); }
     };
@@ -471,6 +474,7 @@ export default function App() {
         code: venue.code,
         lat: venue.lat,
         lng: venue.lng,
+        floorplanUrl: venue.floorplanUrl || '',
         roomsStr: venue.rooms.join(',\n')
       });
       setEditingVenueId(venue.id);
@@ -519,7 +523,7 @@ export default function App() {
                     <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
                       {editingVenueId ? <><Edit size={22} className="text-blue-500"/> Edit Infrastructure</> : <><Plus size={22} className="text-blue-500"/> Deploy Infrastructure</>}
                     </h2>
-                    {editingVenueId && <button onClick={() => {setEditingVenueId(null); setFormData({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '' })}} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel Edit</button>}
+                    {editingVenueId && <button type="button" onClick={() => {setEditingVenueId(null); setFormData({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '', floorplanUrl: '' })}} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel Edit</button>}
                   </div>
 
                   <form onSubmit={handleSave} className="space-y-5">
@@ -536,9 +540,19 @@ export default function App() {
                            <input required type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="e.g. Oak Creek" />
                          </div>
                      </div>
-                     <div>
-                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Access Code (Unique)</label>
-                       <input required type="text" value={formData.code} disabled={!!editingVenueId} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-lg uppercase tracking-widest text-slate-800 disabled:opacity-50" placeholder="e.g. OAKCREEK" />
+                     
+                     <div className="flex gap-4">
+                         <div className="w-1/3">
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Access Code</label>
+                           <input required type="text" value={formData.code} disabled={!!editingVenueId} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-sm uppercase tracking-widest text-slate-800 disabled:opacity-50" placeholder="OAKCREEK" />
+                         </div>
+                         <div className="flex-1">
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Floor Plan Image Link (Optional)</label>
+                           <div className="relative">
+                             <ImageIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                             <input type="url" value={formData.floorplanUrl} onChange={e=>setFormData({...formData, floorplanUrl: e.target.value})} className="w-full p-3 pl-9 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm" placeholder="https://imgur.com/your-blueprint.png" />
+                           </div>
+                         </div>
                      </div>
                      
                      <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
@@ -556,15 +570,14 @@ export default function App() {
 
                      <div>
                        <div className="flex justify-between items-center mb-1.5">
-                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Addresses / Zones</label>
+                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Addresses / Specific Zones</label>
                          <div className="relative">
                            <input type="file" accept=".csv,.txt" onChange={handleCSVUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                            <button type="button" className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded font-bold flex items-center gap-1 pointer-events-none"><UploadCloud size={14}/> Bulk Upload CSV</button>
                          </div>
                        </div>
-                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="101 Maple St
-102 Maple St
-103 Maple St" rows={4}></textarea>
+                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm leading-relaxed" 
+                       placeholder="Building A - Apt 101 (2BHK) - Master Bed&#10;Building A - Apt 101 (2BHK) - Kitchen&#10;Building B - Main Lobby" rows={5}></textarea>
                      </div>
                      <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-md mt-2">
                        {editingVenueId ? 'Update Infrastructure' : 'Initialize Deployment'}
@@ -581,13 +594,13 @@ export default function App() {
                             <div className="flex gap-4">
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Target Point</label>
-                                    <select value={iotRoom} onChange={e => setIotRoom(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium">
+                                    <select value={iotRoom} onChange={e => setIotRoom(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
                                         {activeVenue.rooms?.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
                                 </div>
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Sensor Type</label>
-                                    <select value={iotType} onChange={e => setIotType(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium">
+                                    <select value={iotType} onChange={e => setIotType(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
                                         <option value="Fire">Fire / Flood</option>
                                         <option value="Security">Security / Panic</option>
                                         <option value="Medical">Medical Emergency</option>
@@ -596,7 +609,7 @@ export default function App() {
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Network Node</label>
-                                <select value={iotDevice} onChange={e => setIotDevice(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium">
+                                <select value={iotDevice} onChange={e => setIotDevice(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
                                     <option>LoRa Basement Flood Sensor</option>
                                     <option>LoRa Smart Smoke Detector</option>
                                     <option>Offline LoRa Panic Button</option>
@@ -622,7 +635,7 @@ export default function App() {
                                 </h3>
                                 <div className="flex items-center gap-3 mt-1.5">
                                   <span className="bg-slate-100 text-slate-600 text-xs font-mono font-bold px-2 py-1 rounded-md border border-slate-200">CODE: {v.code}</span>
-                                  <span className="text-xs text-slate-400 flex items-center gap-1"><MapPin size={12}/> {v.rooms?.length || 0} Nodes</span>
+                                  <span className="text-xs text-slate-400 flex items-center gap-1"><MapPin size={12}/> {v.rooms?.length || 0} Zones</span>
                                 </div>
                               </div>
                               <div className="flex gap-2">
@@ -654,7 +667,7 @@ export default function App() {
              <div className="bg-gradient-to-br from-red-500 to-red-700 p-8 rounded-full shadow-[0_0_50px_rgba(220,38,38,0.6)] z-10 relative border border-red-400/50"><Radio size={48} className="animate-pulse text-white" /></div>
           </div>
           <h2 className="text-3xl md:text-4xl font-black mb-2 tracking-tight">SOS Transmitting</h2>
-          <p className="text-slate-300 mb-8 max-w-sm text-lg font-medium">Response teams are routing to <span className="text-white font-bold">{guestRoomId}</span>.</p>
+          <p className="text-slate-300 mb-8 max-w-sm text-lg font-medium">Response teams are routing to <span className="text-white font-bold block mt-1">{guestRoomId}</span></p>
           
           <div className="bg-slate-800/80 backdrop-blur p-6 rounded-3xl border border-slate-700 w-full max-w-md mb-8 shadow-2xl">
             <h3 className="font-bold text-slate-100 mb-4 flex items-center justify-center gap-2 text-lg"><ShieldAlert size={20} className="text-red-400" /> Critical Instructions</h3>
@@ -687,9 +700,9 @@ export default function App() {
             </div>
             <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">{activeVenue.name}</h1>
             <div className="mt-4 flex items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors p-3 rounded-xl border border-slate-200 group">
-              <MapPin size={16} className="text-slate-400 mr-2 group-focus-within:text-blue-500 transition-colors"/>
-              <select value={guestRoomId} onChange={handleRoomChange} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full text-center appearance-none">
-                <option value="" disabled>Select {isNeighborhood ? 'Your Address' : 'Your Zone'}...</option>
+              <MapPin size={16} className="text-slate-400 mr-2 group-focus-within:text-blue-500 transition-colors shrink-0"/>
+              <select value={guestRoomId} onChange={handleRoomChange} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full appearance-none truncate">
+                <option value="" disabled>Select {isNeighborhood ? 'Your Specific Zone/Address' : 'Your Specific Zone'}...</option>
                 {activeVenue.rooms?.map(id => <option key={id} value={id}>{id}</option>)}
               </select>
             </div>
@@ -828,7 +841,7 @@ export default function App() {
                       {alert.type === 'Fire' ? <Flame size={24} /> : alert.type === 'Medical' ? <Activity size={24} /> : <ShieldAlert size={24} />}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-black text-slate-900 text-lg md:text-xl truncate tracking-tight">{alert.roomId}</h3>
+                      <h3 className="font-black text-slate-900 text-lg md:text-xl truncate tracking-tight" title={alert.roomId}>{alert.roomId}</h3>
                       <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mt-0.5"><Clock size={12} className="text-slate-400"/> {new Date(alert.timestamp).toLocaleTimeString()}</p>
                     </div>
                   </div>
@@ -869,7 +882,9 @@ export default function App() {
                      const isAlert = venueAlerts.some(a => a.roomId === rId);
                      return (
                         <div key={rId} className={`relative flex flex-col items-center justify-center border-2 rounded-[1.5rem] transition-all duration-300 p-4 min-w-[110px] min-h-[110px] shadow-sm ${isAlert ? 'border-red-500 bg-red-50 shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-pulse scale-105 z-10' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
-                           <span className={`font-black text-center ${isAlert ? 'text-red-700 text-2xl tracking-tight' : 'text-slate-500 text-sm'}`}>{rId}</span>
+                           <span className={`font-black text-center ${isAlert ? 'text-red-700 text-2xl tracking-tight' : 'text-slate-500 text-xs'}`} title={rId}>
+                              {rId.length > 20 && !isAlert ? rId.substring(0, 17) + '...' : rId}
+                           </span>
                            {isAlert && <AlertTriangle size={24} className="text-red-600 mt-2" />}
                         </div>
                      )
@@ -900,22 +915,42 @@ export default function App() {
        if (mapMode === 'floorplan') {
          return (
            <div className="flex-grow relative flex bg-[#0f172a] overflow-hidden w-full h-full items-center justify-center">
-              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-              <div className="w-3/4 h-3/4 border-2 border-blue-500/30 relative flex items-center justify-center bg-blue-900/10 backdrop-blur-sm rounded-lg shadow-[0_0_50px_rgba(59,130,246,0.1)]">
-                 <Layers size={200} className="text-blue-500/10 absolute" />
-                 <div className="absolute flex flex-col items-center justify-center z-10">
-                   <div className="w-20 h-20 border-2 border-red-500/80 rounded-full absolute animate-ping"></div>
-                   <div className="w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_20px_#ef4444]"></div>
-                   <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
-                     {activeResponderAlert.roomId}
+              {activeVenue.floorplanUrl ? (
+                 // Render the Admin's uploaded Floor Plan Image
+                 <div className="relative w-full h-full p-4 flex items-center justify-center">
+                   <img src={activeVenue.floorplanUrl} alt="Uploaded Floorplan" className="max-w-full max-h-full object-contain opacity-80 rounded-xl shadow-[0_0_50px_rgba(59,130,246,0.1)]" />
+                   
+                   {/* Tactical Overlay Marker on top of image */}
+                   <div className="absolute flex flex-col items-center justify-center z-10">
+                     <div className="w-20 h-20 border-2 border-red-500/80 rounded-full absolute animate-ping"></div>
+                     <div className="w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_20px_#ef4444]"></div>
+                     <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
+                       {activeResponderAlert.roomId}
+                     </div>
                    </div>
                  </div>
-              </div>
+              ) : (
+                 // Render Fallback if no Image was provided
+                 <>
+                    <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+                    <div className="w-3/4 h-3/4 border-2 border-blue-500/30 relative flex items-center justify-center bg-blue-900/10 backdrop-blur-sm rounded-lg shadow-[0_0_50px_rgba(59,130,246,0.1)]">
+                       <Layers size={200} className="text-blue-500/10 absolute" />
+                       <div className="absolute flex flex-col items-center justify-center z-10">
+                         <div className="w-20 h-20 border-2 border-red-500/80 rounded-full absolute animate-ping"></div>
+                         <div className="w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_20px_#ef4444]"></div>
+                         <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
+                           {activeResponderAlert.roomId}
+                         </div>
+                       </div>
+                       <div className="absolute bottom-4 right-4 text-xs text-blue-500/50 font-bold">NO FLOORPLAN UPLOADED</div>
+                    </div>
+                 </>
+              )}
            </div>
          );
        }
 
-       const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
+       const mapUrl = `https://maps.google.com/maps?q=$${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
        return (
          <div className="flex-grow relative flex bg-black overflow-hidden w-full h-full">
             <iframe 
@@ -939,7 +974,7 @@ export default function App() {
             </div>
          </div>
        );
-    }, [activeVenue.lat, activeVenue.lng, activeResponderAlert.roomId, mapMode]);
+    }, [activeVenue.lat, activeVenue.lng, activeVenue.floorplanUrl, activeResponderAlert.roomId, mapMode]);
 
     return (
       <div className="bg-[#0a0f16] h-full w-full text-slate-300 flex flex-col font-mono selection:bg-red-500/30 overflow-hidden">
@@ -974,8 +1009,8 @@ export default function App() {
               )}
 
               <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-3`}>Target Location</h3>
-              <div className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">{activeResponderAlert.roomId}</div>
-              <div className="text-sm font-bold text-slate-400 mb-6">{activeVenue.name}</div>
+              <div className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight leading-none">{activeResponderAlert.roomId}</div>
+              <div className="text-sm font-bold text-slate-400 mb-6 mt-2">{activeVenue.name}</div>
               
               <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-3 mt-4`}>Incident Profile</h3>
               <div className="bg-black/50 p-4 rounded-xl border border-slate-800 text-slate-200">
