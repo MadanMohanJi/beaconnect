@@ -429,30 +429,27 @@ export default function App() {
   };
 
   // --- 2. Admin Settings View ---
+  // --- 2. Admin Settings View ---
   const AdminSettings = () => {
-    // Added floorplanUrl to the state
     const [formData, setFormData] = useState({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '', floorplanUrl: '' });
     const [editingVenueId, setEditingVenueId] = useState(null);
     const [isLocating, setIsLocating] = useState(false);
     
+    // IoT Sim State
     const [iotRoom, setIotRoom] = useState(activeVenue?.rooms?.[0] || '');
     const [iotType, setIotType] = useState('Fire');
     const [iotDevice, setIotDevice] = useState('LoRa Smart Smoke Detector');
+
+    // Smart Zone Generator State
+    const [baseName, setBaseName] = useState('');
+    const [subZoneInput, setSubZoneInput] = useState('Kitchen, Master Bedroom, Living Room, Guest Bath, Balcony');
 
     useEffect(() => { if (venues.length > 0 && !activeVenue) setActiveVenue(venues[0]); }, [venues]);
 
     const handleSave = async (e) => {
       e.preventDefault();
       const roomsArray = formData.roomsStr.split(/[\n,]+/).map(s => s.trim()).filter(s => s);
-      const payload = { 
-        name: formData.name, 
-        venueType: formData.venueType, 
-        code: formData.code.toUpperCase(), 
-        lat: formData.lat, 
-        lng: formData.lng, 
-        floorplanUrl: formData.floorplanUrl, // Saving the new image URL
-        rooms: roomsArray 
-      };
+      const payload = { name: formData.name, venueType: formData.venueType, code: formData.code.toUpperCase(), lat: formData.lat, lng: formData.lng, floorplanUrl: formData.floorplanUrl, rooms: roomsArray };
       
       try {
         if (editingVenueId) {
@@ -469,13 +466,7 @@ export default function App() {
 
     const handleEdit = (venue) => {
       setFormData({
-        name: venue.name,
-        venueType: venue.venueType,
-        code: venue.code,
-        lat: venue.lat,
-        lng: venue.lng,
-        floorplanUrl: venue.floorplanUrl || '',
-        roomsStr: venue.rooms.join(',\n')
+        name: venue.name, venueType: venue.venueType, code: venue.code, lat: venue.lat, lng: venue.lng, floorplanUrl: venue.floorplanUrl || '', roomsStr: venue.rooms.join(',\n')
       });
       setEditingVenueId(venue.id);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -485,9 +476,7 @@ export default function App() {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (evt) => {
-        setFormData(prev => ({...prev, roomsStr: evt.target.result}));
-      };
+      reader.onload = (evt) => setFormData(prev => ({...prev, roomsStr: evt.target.result}));
       reader.readAsText(file);
     };
 
@@ -500,13 +489,26 @@ export default function App() {
                     setFormData(prev => ({...prev, lat: position.coords.latitude.toFixed(6), lng: position.coords.longitude.toFixed(6)}));
                     setIsLocating(false);
                 },
-                (error) => {
-                    alert("GPS Error. Ensure permissions are granted.");
-                    setIsLocating(false);
-                },
+                (error) => { alert("GPS Error. Ensure permissions are granted."); setIsLocating(false); },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
             );
         } else { alert("GPS Geolocation is not supported by your browser."); }
+    };
+
+    // GENERATOR LOGIC
+    const handleGenerateZones = () => {
+       if (!baseName.trim()) return alert("Please enter a Base Address or Building name first.");
+       if (!subZoneInput.trim()) return alert("Please enter at least one sub-zone.");
+       
+       const subs = subZoneInput.split(',').map(s => s.trim()).filter(s => s);
+       const generatedText = subs.map(sub => `${baseName.trim()} - ${sub}`).join('\n');
+       
+       setFormData(prev => ({
+         ...prev,
+         roomsStr: prev.roomsStr ? prev.roomsStr + '\n' + generatedText : generatedText
+       }));
+       
+       setBaseName(''); // Clear base name so they can easily type the next one
     };
 
     return (
@@ -568,16 +570,34 @@ export default function App() {
                         </div>
                      </div>
 
+                     {/* --- SMART ZONE GENERATOR --- */}
+                     <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                        <label className="block text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Layers size={14}/> Smart Sub-Zone Generator</label>
+                        <p className="text-[10px] text-indigo-500 mb-3">Instantly generate multiple sub-rooms for a single building or address.</p>
+                        
+                        <div className="space-y-3">
+                           <div>
+                              <input type="text" value={baseName} onChange={e => setBaseName(e.target.value)} className="w-full p-2.5 bg-white border border-indigo-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-medium" placeholder="Base Address (e.g., Tower A - Apt 102)" />
+                           </div>
+                           <div>
+                              <input type="text" value={subZoneInput} onChange={e => setSubZoneInput(e.target.value)} className="w-full p-2.5 bg-white border border-indigo-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-medium text-slate-600" placeholder="Comma separated sub-zones" />
+                           </div>
+                           <button type="button" onClick={handleGenerateZones} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition-all active:scale-95 shadow-sm">
+                             Generate & Add to List ↓
+                           </button>
+                        </div>
+                     </div>
+
                      <div>
                        <div className="flex justify-between items-center mb-1.5">
-                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Addresses / Specific Zones</label>
+                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Final Zone List</label>
                          <div className="relative">
                            <input type="file" accept=".csv,.txt" onChange={handleCSVUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                            <button type="button" className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded font-bold flex items-center gap-1 pointer-events-none"><UploadCloud size={14}/> Bulk Upload CSV</button>
                          </div>
                        </div>
                        <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm leading-relaxed" 
-                       placeholder="Building A - Apt 101 (2BHK) - Master Bed&#10;Building A - Apt 101 (2BHK) - Kitchen&#10;Building B - Main Lobby" rows={5}></textarea>
+                       placeholder="Final output will appear here..." rows={6}></textarea>
                      </div>
                      <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-md mt-2">
                        {editingVenueId ? 'Update Infrastructure' : 'Initialize Deployment'}
@@ -653,7 +673,6 @@ export default function App() {
       </div>
     );
   };
-
   // --- 3. Guest/Resident Interface ---
   const GuestInterface = () => {
     const currentRoomAlert = alerts.find(a => a.venueId === activeVenue.id && a.roomId === guestRoomId && a.status === 'active');
