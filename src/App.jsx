@@ -31,7 +31,9 @@ const ALERTS_COLLECTION = 'alerts_v6';
 const VENUES_COLLECTION = 'venues_v6';
 
 // --- Gemini API Setup ---
-const geminiApiKey = "YOUR_GEMINI_API_KEY_HERE"; // <--- PASTE YOUR GEMINI KEY HERE
+// --- Gemini API Setup ---
+// Pulls securely from your hidden .env file!
+const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY; 
 const MODEL_NAME = "gemini-2.5-flash";
 
 async function fetchWithRetry(url, options, maxRetries = 5) {
