@@ -146,6 +146,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [venues, setVenues] = useState([]);
+  const [micLang, setMicLang] = useState('en-US'); // Default to English
   
   const [currentRole, setCurrentRole] = useState('portal');
   const [activeVenue, setActiveVenue] = useState(null);
@@ -279,11 +280,10 @@ export default function App() {
   const handleVoiceInput = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return alert("Your browser does not support Voice-to-Text. Please type your message.");
-    
     const recognition = new SpeechRecognition();
     
-    // --- NEW: Tell the microphone to listen in the user's native device language! ---
-    recognition.lang = navigator.language || 'en-US'; 
+    // --- THIS LINE CHANGES: Tell it to use the dropdown selection ---
+    recognition.lang = micLang; 
     
     recognition.onstart = () => setIsRecording(true);
     recognition.onresult = (e) => setCustomText(e.results[0][0].transcript);
@@ -291,7 +291,6 @@ export default function App() {
     recognition.onend = () => setIsRecording(false);
     recognition.start();
   };
-
   const Portal = () => {
     const [accessCode, setAccessCode] = useState('');
     const [staffPin, setStaffPin] = useState('');
@@ -748,7 +747,17 @@ export default function App() {
             <div className="bg-white p-5 rounded-[2rem] border border-slate-200 mt-8 shadow-sm">
               <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 ml-1 flex items-center gap-1.5"><Zap size={12} className="text-blue-500"/> Custom AI Alert</label>
               <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 items-center">
-                <button onClick={handleVoiceInput} className={`p-2 rounded-full transition-colors shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500 hover:bg-blue-100 hover:text-blue-600'}`}><Mic size={18} /></button>
+                
+                {/* --- NEW: Combined Mic & Language Dropdown --- */}
+                <div className="relative flex items-center bg-slate-200 rounded-[1.2rem] shrink-0">
+                  <button onClick={handleVoiceInput} className={`p-2 rounded-full transition-colors ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'text-slate-500 hover:text-blue-600'}`}><Mic size={18} /></button>
+                  <select value={micLang} onChange={(e) => setMicLang(e.target.value)} className="bg-transparent text-[10px] font-black text-slate-600 outline-none pr-2 cursor-pointer appearance-none text-center">
+                    <option value="en-US">EN</option>
+                    <option value="es-ES">ES</option>
+                    <option value="hi-IN">HI</option>
+                  </select>
+                </div>
+
                 <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Speak or type..." className="flex-grow p-2 text-sm font-medium bg-transparent text-slate-800 outline-none min-w-0" disabled={isSubmitting} />
                 <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold hover:bg-blue-600 disabled:opacity-50 active:scale-95 shrink-0 flex items-center justify-center min-w-[80px]">{isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Send'}</button>
               </div>
