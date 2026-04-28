@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
-  Flame, Activity, ShieldAlert, PhoneCall, Map as MapIcon, Info, 
-  AlertTriangle, CheckCircle2, Shield, User, Send, Navigation, 
-  X, Clock, MapPin, Radio, BellRing, Settings, LogOut, ChevronRight,
-  Crosshair, Zap, Menu, Building, Lock, KeyRound, Plus, Trash2, Cpu, Link as LinkIcon, Crosshair as GpsIcon, Home, WifiOff
+  Flame, Activity, ShieldAlert, Map as MapIcon, 
+  AlertTriangle, CheckCircle2, Shield, User, Navigation, 
+  Clock, MapPin, Radio, Settings, LogOut, ChevronRight,
+  Crosshair, Zap, Building, KeyRound, Plus, Trash2, Cpu, 
+  Link as LinkIcon, Crosshair as GpsIcon, Home, WifiOff, 
+  Mic, VolumeX, Volume2, Edit, UploadCloud, Layers
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
@@ -84,6 +86,7 @@ async function analyzeEmergency(text) {
   }
 }
 
+// --- Professional Sonar Ping Audio ---
 const triggerHardwareAlarm = () => {
   if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
   try {
@@ -122,23 +125,21 @@ const notifyStaff = (alert) => {
   }
 };
 
-// --- ISOLATED TIMER COMPONENT ---
-// This guarantees the map will never blink, because the countdown logic 
-// is separated from the main app's redraw cycle!
-const CountdownTimer = ({ initialEta, isLoRa }) => {
-  const [eta, setEta] = useState(initialEta);
+// --- DYNAMIC ETA TIMER ---
+const CountdownTimer = ({ endTime, isLoRa }) => {
+  const [timeLeft, setTimeLeft] = useState(Math.max(0, Math.floor((endTime - Date.now()) / 1000)));
   
   useEffect(() => {
-    if (eta > 0) {
-      const timer = setInterval(() => setEta(prev => prev - 1), 1000);
-      return () => clearInterval(timer);
-    }
-  }, [eta]);
+    const timer = setInterval(() => {
+      setTimeLeft(Math.max(0, Math.floor((endTime - Date.now()) / 1000)));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [endTime]);
 
   return (
     <div className="text-right shrink-0">
       <div className="text-2xl md:text-4xl font-light text-white">
-        {Math.floor(eta / 60)}:{(eta % 60).toString().padStart(2, '0')}
+        {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
       </div>
       <div className={`text-[8px] md:text-[10px] font-bold uppercase tracking-widest ${isLoRa ? 'text-purple-400' : 'text-red-400'}`}>Est. Arrival</div>
     </div>
@@ -157,7 +158,13 @@ export default function App() {
   const [customText, setCustomText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useLoraMesh, setUseLoraMesh] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+
   const [activeResponderAlert, setActiveResponderAlert] = useState(null);
+  const [responderEndTime, setResponderEndTime] = useState(Date.now() + 180000);
+  const [mapMode, setMapMode] = useState('satellite');
+
+  const [mutedAlerts, setMutedAlerts] = useState([]);
 
   const prevAlertCountRef = useRef(0);
 
@@ -171,6 +178,22 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Persist Guest Room Selection
+  useEffect(() => {
+    if (currentRole === 'guest' && activeVenue) {
+      const savedRoom = localStorage.getItem(`beaconnet_room_${activeVenue.id}`);
+      if (savedRoom && activeVenue.rooms?.includes(savedRoom)) {
+        setGuestRoomId(savedRoom);
+      }
+    }
+  }, [currentRole, activeVenue]);
+
+  const handleRoomChange = (e) => {
+    const room = e.target.value;
+    setGuestRoomId(room);
+    localStorage.setItem(`beaconnet_room_${activeVenue.id}`, room);
+  };
+
   useEffect(() => {
     if (!user) return;
 
@@ -178,7 +201,6 @@ export default function App() {
     const unsubVenues = onSnapshot(venuesRef, (snapshot) => {
       const fetchedVenues = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setVenues(fetchedVenues);
-      
       if (activeVenue) {
         const updated = fetchedVenues.find(v => v.id === activeVenue.id);
         if (updated) setActiveVenue(updated);
@@ -192,9 +214,11 @@ export default function App() {
       setAlerts(fetchedAlerts);
 
       const activeAlerts = fetchedAlerts.filter(a => a.status === 'active' && a.venueId === activeVenue?.id);
+      
+      // Only trigger notification for NEW alerts, not every time it updates
       if ((currentRole === 'staff' || currentRole === 'responder') && activeAlerts.length > prevAlertCountRef.current) {
          notifyStaff(activeAlerts[0]);
-         triggerHardwareAlarm();
+         if (!mutedAlerts.includes(activeAlerts[0].id)) triggerHardwareAlarm();
       }
       prevAlertCountRef.current = activeAlerts.length;
 
@@ -205,22 +229,28 @@ export default function App() {
     });
 
     return () => { unsubVenues(); unsubAlerts(); };
-  }, [user, activeVenue?.id, activeResponderAlert?.id, currentRole]);
+  }, [user, activeVenue?.id, activeResponderAlert?.id, currentRole, mutedAlerts]);
 
+  // Handle Repeating Alarms (Excluding Muted)
   useEffect(() => {
     let alarmInterval;
-    const activeAlerts = alerts.filter(a => a.status === 'active' && a.venueId === activeVenue?.id);
-    if ((currentRole === 'staff' || currentRole === 'responder') && activeAlerts.length > 0) {
+    const activeUnmutedAlerts = alerts.filter(a => a.status === 'active' && a.venueId === activeVenue?.id && !mutedAlerts.includes(a.id));
+    if ((currentRole === 'staff' || currentRole === 'responder') && activeUnmutedAlerts.length > 0) {
       alarmInterval = setInterval(triggerHardwareAlarm, 4000);
     }
     return () => clearInterval(alarmInterval);
-  }, [currentRole, alerts, activeVenue?.id]);
+  }, [currentRole, alerts, activeVenue?.id, mutedAlerts]);
+
+  const toggleMute = (alertId) => {
+    setMutedAlerts(prev => prev.includes(alertId) ? prev.filter(id => id !== alertId) : [...prev, alertId]);
+  };
 
   const handleLogout = () => {
     setCurrentRole('portal');
     setActiveVenue(null);
     setGuestRoomId('');
     setActiveResponderAlert(null);
+    setMapMode('satellite');
   };
 
   const triggerAlert = async (type, isCustom = false, sourceOverride = null, overrideRoom = null) => {
@@ -239,7 +269,7 @@ export default function App() {
        } else {
          finalSource = targetVenue.venueType === 'neighborhood' ? 'Resident Mobile App' : 'Guest Mobile App';
        }
-    } else if (sourceOverride.includes('LoRa')) {
+    } else if (sourceOverride?.includes('LoRa')) {
        networkMethod = "LoRa Radio Mesh";
     }
 
@@ -284,6 +314,19 @@ export default function App() {
     } catch (err) { console.error(err); }
   };
 
+  // --- Voice to Text ---
+  const handleVoiceInput = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return alert("Your browser does not support Voice-to-Text. Please type your message.");
+    
+    const recognition = new SpeechRecognition();
+    recognition.onstart = () => setIsRecording(true);
+    recognition.onresult = (e) => setCustomText(e.results[0][0].transcript);
+    recognition.onerror = () => setIsRecording(false);
+    recognition.onend = () => setIsRecording(false);
+    recognition.start();
+  };
+
   // --- 1. Portal / Login Screen ---
   const Portal = () => {
     const [accessCode, setAccessCode] = useState('');
@@ -303,7 +346,6 @@ export default function App() {
         const venue = venues.find(v => v.code.toUpperCase() === accessCode.toUpperCase());
         if (venue) {
           setActiveVenue(venue);
-          setGuestRoomId(venue.rooms[0] || 'Unknown');
           setCurrentRole('guest');
         } else {
           setError('Invalid Access Code. Try demo code "VEGAS24" or "OAKCREEK"');
@@ -343,25 +385,21 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center p-6 text-slate-200">
         <div className="w-full max-w-md bg-slate-800/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-2xl border border-slate-700/50 relative">
-          
           {venues.length === 0 && (
              <div className="absolute -top-12 left-0 right-0 bg-yellow-500 text-yellow-900 font-bold p-2 rounded-lg text-center text-xs animate-bounce shadow-lg">
                ⚠️ NEW DATABASE - CLICK "SEED DEMO DATA" BELOW ⚠️
              </div>
           )}
-
           <div className="flex flex-col items-center mb-8">
             <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-4 rounded-2xl mb-4 shadow-[0_0_30px_rgba(37,99,235,0.4)]"><Zap size={32} className="text-white" /></div>
             <h1 className="text-3xl font-black text-white tracking-tight">BeaconNet</h1>
             <p className="text-slate-400 text-sm font-medium mt-1">Unified Emergency Mesh</p>
           </div>
-
           <div className="flex gap-2 bg-slate-900/50 p-1.5 rounded-xl mb-6 border border-slate-700/50">
             <button onClick={() => {setLoginType('guest'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'guest' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Citizen</button>
             <button onClick={() => {setLoginType('staff'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'staff' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Command</button>
             <button onClick={() => {setLoginType('admin'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Admin</button>
           </div>
-
           <div className="space-y-4">
             {loginType !== 'admin' && (
               <div>
@@ -372,7 +410,6 @@ export default function App() {
                 </div>
               </div>
             )}
-
             {(loginType === 'staff' || loginType === 'admin') && (
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Security PIN</label>
@@ -382,14 +419,11 @@ export default function App() {
                 </div>
               </div>
             )}
-
             {error && <div className="text-red-400 text-sm font-medium bg-red-900/20 p-3.5 rounded-xl border border-red-500/30 flex items-start gap-2 animate-in fade-in zoom-in duration-200"><AlertTriangle size={18} className="shrink-0 mt-0.5" /> {error}</div>}
-
             <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl mt-4 transition-all shadow-lg shadow-blue-900/50 flex justify-center items-center gap-2">
                Connect to Mesh <ChevronRight size={18} />
             </button>
           </div>
-
           {venues.length === 0 && (
              <button onClick={seedDemoVenues} disabled={isSeeding} className="w-full mt-6 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-900/50 flex justify-center items-center gap-2">
                {isSeeding ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '1. Seed Demo Data to Firebase'}
@@ -403,6 +437,7 @@ export default function App() {
   // --- 2. Admin Settings View ---
   const AdminSettings = () => {
     const [formData, setFormData] = useState({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '' });
+    const [editingVenueId, setEditingVenueId] = useState(null);
     const [isLocating, setIsLocating] = useState(false);
     
     const [iotRoom, setIotRoom] = useState(activeVenue?.rooms?.[0] || '');
@@ -413,13 +448,43 @@ export default function App() {
 
     const handleSave = async (e) => {
       e.preventDefault();
-      const roomsArray = formData.roomsStr.split(',').map(s => s.trim()).filter(s => s);
-      const newVenue = { name: formData.name, venueType: formData.venueType, code: formData.code.toUpperCase(), lat: formData.lat, lng: formData.lng, rooms: roomsArray };
+      const roomsArray = formData.roomsStr.split(/[\n,]+/).map(s => s.trim()).filter(s => s);
+      const payload = { name: formData.name, venueType: formData.venueType, code: formData.code.toUpperCase(), lat: formData.lat, lng: formData.lng, rooms: roomsArray };
+      
       try {
-        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION), newVenue);
+        if (editingVenueId) {
+          await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, editingVenueId), payload);
+          alert("Success! Infrastructure updated.");
+        } else {
+          await addDoc(collection(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION), payload);
+          alert("Success! Infrastructure created.");
+        }
         setFormData({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '' });
-        alert("Success! Infrastructure created.");
+        setEditingVenueId(null);
       } catch(err) { alert("Error: " + err.message); }
+    };
+
+    const handleEdit = (venue) => {
+      setFormData({
+        name: venue.name,
+        venueType: venue.venueType,
+        code: venue.code,
+        lat: venue.lat,
+        lng: venue.lng,
+        roomsStr: venue.rooms.join(',\n')
+      });
+      setEditingVenueId(venue.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handleCSVUpload = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        setFormData(prev => ({...prev, roomsStr: evt.target.result}));
+      };
+      reader.readAsText(file);
     };
 
     const handleAutoDetectGPS = (e) => {
@@ -432,12 +497,7 @@ export default function App() {
                     setIsLocating(false);
                 },
                 (error) => {
-                    console.error("GPS Error:", error);
-                    let errMsg = "Could not fetch location.";
-                    if (error.code === 1) errMsg = "Location permission was denied by your browser. Please click the lock icon next to the URL bar and allow location access.";
-                    if (error.code === 2) errMsg = "Position unavailable. You might be disconnected from the network.";
-                    if (error.code === 3) errMsg = "GPS request timed out.";
-                    alert(errMsg);
+                    alert("GPS Error. Ensure permissions are granted.");
                     setIsLocating(false);
                 },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
@@ -455,7 +515,13 @@ export default function App() {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
-                  <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800"><Plus size={22} className="text-blue-500"/> Deploy Infrastructure</h2>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
+                      {editingVenueId ? <><Edit size={22} className="text-blue-500"/> Edit Infrastructure</> : <><Plus size={22} className="text-blue-500"/> Deploy Infrastructure</>}
+                    </h2>
+                    {editingVenueId && <button onClick={() => {setEditingVenueId(null); setFormData({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '' })}} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel Edit</button>}
+                  </div>
+
                   <form onSubmit={handleSave} className="space-y-5">
                      <div className="flex gap-4">
                          <div className="flex-1">
@@ -472,7 +538,7 @@ export default function App() {
                      </div>
                      <div>
                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Access Code (Unique)</label>
-                       <input required type="text" value={formData.code} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-lg uppercase tracking-widest text-slate-800" placeholder="e.g. OAKCREEK" />
+                       <input required type="text" value={formData.code} disabled={!!editingVenueId} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-lg uppercase tracking-widest text-slate-800 disabled:opacity-50" placeholder="e.g. OAKCREEK" />
                      </div>
                      
                      <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
@@ -489,10 +555,18 @@ export default function App() {
                      </div>
 
                      <div>
-                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Addresses / Zones (Comma Separated)</label>
-                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="101 Maple St, 102 Maple St..." rows={3}></textarea>
+                       <div className="flex justify-between items-center mb-1.5">
+                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Addresses / Zones</label>
+                         <div className="relative">
+                           <input type="file" accept=".csv,.txt" onChange={handleCSVUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                           <button type="button" className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded font-bold flex items-center gap-1 pointer-events-none"><UploadCloud size={14}/> Bulk Upload CSV</button>
+                         </div>
+                       </div>
+                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="101 Maple St&#10;102 Maple St&#10;103 Maple St" rows={4}></textarea>
                      </div>
-                     <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-md mt-2">Initialize Deployment</button>
+                     <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-md mt-2">
+                       {editingVenueId ? 'Update Infrastructure' : 'Initialize Deployment'}
+                     </button>
                   </form>
                </div>
 
@@ -550,7 +624,8 @@ export default function App() {
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, v.id))} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl transition-colors"><Trash2 size={20}/></button>
+                                <button onClick={() => handleEdit(v)} title="Edit Infrastructure" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-2.5 rounded-xl transition-colors"><Edit size={20}/></button>
+                                <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, v.id))} title="Delete Infrastructure" className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl transition-colors"><Trash2 size={20}/></button>
                               </div>
                             </div>
                         </div>
@@ -611,7 +686,7 @@ export default function App() {
             <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">{activeVenue.name}</h1>
             <div className="mt-4 flex items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors p-3 rounded-xl border border-slate-200 group">
               <MapPin size={16} className="text-slate-400 mr-2 group-focus-within:text-blue-500 transition-colors"/>
-              <select value={guestRoomId} onChange={(e) => setGuestRoomId(e.target.value)} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full text-center appearance-none">
+              <select value={guestRoomId} onChange={handleRoomChange} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full text-center appearance-none">
                 <option value="" disabled>Select {isNeighborhood ? 'Your Address' : 'Your Zone'}...</option>
                 {activeVenue.rooms?.map(id => <option key={id} value={id}>{id}</option>)}
               </select>
@@ -664,8 +739,11 @@ export default function App() {
 
             <div className="bg-white p-5 rounded-[2rem] border border-slate-200 mt-8 shadow-sm">
               <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 ml-1 flex items-center gap-1.5"><Zap size={12} className="text-blue-500"/> Custom AI Alert</label>
-              <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
-                <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Describe situation..." className="flex-grow p-3 text-sm font-medium bg-transparent text-slate-800 outline-none min-w-0" disabled={isSubmitting} />
+              <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all items-center">
+                <button onClick={handleVoiceInput} className={`p-2 rounded-full transition-colors shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500 hover:bg-blue-100 hover:text-blue-600'}`}>
+                   <Mic size={18} />
+                </button>
+                <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Speak or type..." className="flex-grow p-2 text-sm font-medium bg-transparent text-slate-800 outline-none min-w-0" disabled={isSubmitting} />
                 <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold hover:bg-blue-600 disabled:opacity-50 transition-all active:scale-95 shrink-0 flex items-center justify-center min-w-[80px]">
                   {isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Send'}
                 </button>
@@ -737,8 +815,10 @@ export default function App() {
               </div>
             )}
 
-            {venueAlerts.map(alert => (
-              <div key={alert.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border border-slate-200 hover:border-red-300 hover:shadow-md transition-all group">
+            {venueAlerts.map(alert => {
+              const isMuted = mutedAlerts.includes(alert.id);
+              return (
+              <div key={alert.id} className={`bg-white p-5 rounded-[1.5rem] shadow-sm border ${isMuted ? 'border-slate-200 opacity-80' : 'border-red-300 shadow-red-500/10'} hover:shadow-md transition-all group`}>
                 {alert.network === 'LoRa Radio Mesh' && (
                    <div className="bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md mb-4 flex items-center gap-1.5 w-max shadow-sm border border-purple-200">
                       <WifiOff size={12} /> {alert.network} (Offline)
@@ -754,7 +834,10 @@ export default function App() {
                       <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mt-0.5"><Clock size={12} className="text-slate-400"/> {new Date(alert.timestamp).toLocaleTimeString()}</p>
                     </div>
                   </div>
-                  <span className={`text-[10px] md:text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-md shrink-0 shadow-sm border ${alert.severity === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>{alert.severity}</span>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`text-[10px] md:text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-md shrink-0 shadow-sm border ${alert.severity === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>{alert.severity}</span>
+                    {isMuted && <span className="text-[9px] font-bold text-slate-400 uppercase flex items-center gap-1"><VolumeX size={10}/> Muted</span>}
+                  </div>
                 </div>
                 <div className="bg-slate-50/80 p-4 rounded-2xl mb-4 border border-slate-100">
                   <p className="text-sm font-semibold text-slate-700 leading-relaxed mb-3">{alert.summary}</p>
@@ -765,13 +848,16 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setCurrentRole('responder'); setActiveResponderAlert(alert); }} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                  <button onClick={() => { setCurrentRole('responder'); setActiveResponderAlert(alert); setResponderEndTime(Date.now() + 180000); }} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors shadow-sm active:scale-95 flex items-center justify-center gap-2">
                     <MapIcon size={14} /> Tactical UI
+                  </button>
+                  <button onClick={() => toggleMute(alert.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm border ${isMuted ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
+                    {isMuted ? <Volume2 size={16}/> : <VolumeX size={16}/>}
                   </button>
                   <button onClick={() => resolveAlert(alert.id)} className="px-5 bg-white border border-slate-300 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-red-600 transition-colors shadow-sm active:scale-95">Clear</button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
 
@@ -812,7 +898,51 @@ export default function App() {
     }
 
     const isLoRa = activeResponderAlert.network === 'LoRa Radio Mesh';
-    const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
+    
+    const memoizedMap = useMemo(() => {
+       if (mapMode === 'floorplan') {
+         return (
+           <div className="flex-grow relative flex bg-[#0f172a] overflow-hidden w-full h-full items-center justify-center">
+              <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'linear-gradient(#3b82f6 1px, transparent 1px), linear-gradient(90deg, #3b82f6 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+              <div className="w-3/4 h-3/4 border-2 border-blue-500/30 relative flex items-center justify-center bg-blue-900/10 backdrop-blur-sm rounded-lg shadow-[0_0_50px_rgba(59,130,246,0.1)]">
+                 <Layers size={200} className="text-blue-500/10 absolute" />
+                 <div className="absolute flex flex-col items-center justify-center z-10">
+                   <div className="w-20 h-20 border-2 border-red-500/80 rounded-full absolute animate-ping"></div>
+                   <div className="w-4 h-4 bg-red-500 rounded-full z-10 shadow-[0_0_20px_#ef4444]"></div>
+                   <div className="mt-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
+                     {activeResponderAlert.roomId}
+                   </div>
+                 </div>
+              </div>
+           </div>
+         );
+       }
+
+       const mapUrl = `https://maps.google.com/maps?q=$${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
+       return (
+         <div className="flex-grow relative flex bg-black overflow-hidden w-full h-full">
+            <iframe 
+               title="Tactical Map"
+               src={mapUrl}
+               className="absolute inset-0 w-full h-full border-0 opacity-80" 
+               style={{ filter: "sepia(20%) hue-rotate(180deg) saturate(150%) brightness(80%)" }}
+               allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+            ></iframe>
+            <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
+               <div className="absolute flex flex-col items-center justify-center z-10">
+                 <div className="w-16 h-16 border-2 border-red-500/80 rounded-full absolute"></div>
+                 <div className="w-[100vw] h-px bg-red-500/30 absolute"></div>
+                 <div className="w-px h-[100vh] bg-red-500/30 absolute"></div>
+                 <div className="w-3 h-3 bg-red-500 rounded-full z-10 shadow-[0_0_15px_#ef4444]"></div>
+                 <div className="absolute top-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
+                   OBJ: {activeResponderAlert.roomId}
+                 </div>
+               </div>
+            </div>
+         </div>
+       );
+    }, [activeVenue.lat, activeVenue.lng, activeResponderAlert.roomId, mapMode]);
 
     return (
       <div className="bg-[#0a0f16] h-full w-full text-slate-300 flex flex-col font-mono selection:bg-red-500/30 overflow-hidden">
@@ -825,8 +955,13 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-4 md:gap-6">
-             <CountdownTimer initialEta={180} isLoRa={isLoRa} />
-             <button onClick={handleLogout} className="bg-slate-800 p-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors active:scale-95"><LogOut size={20}/></button>
+             <div className="hidden md:flex gap-2 mr-4">
+                <button onClick={() => setResponderEndTime(Date.now() + 180000)} className="bg-slate-800 text-xs text-white px-2 py-1 rounded hover:bg-slate-700 active:scale-95">+3M</button>
+                <button onClick={() => setResponderEndTime(Date.now() + 300000)} className="bg-slate-800 text-xs text-white px-2 py-1 rounded hover:bg-slate-700 active:scale-95">+5M</button>
+                <button onClick={() => setResponderEndTime(Date.now() + 600000)} className="bg-slate-800 text-xs text-white px-2 py-1 rounded hover:bg-slate-700 active:scale-95">+10M</button>
+             </div>
+             <CountdownTimer endTime={responderEndTime} isLoRa={isLoRa} />
+             <button onClick={handleLogout} className="bg-slate-800 p-3 rounded-lg text-slate-400 hover:text-white hover:bg-red-600 transition-colors active:scale-95"><LogOut size={20}/></button>
           </div>
         </div>
 
@@ -858,34 +993,17 @@ export default function App() {
 
           <div className="w-full lg:w-2/3 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-col relative overflow-hidden shadow-2xl h-[55vh] lg:h-full shrink-0">
             <div className="p-3 md:p-4 border-b border-slate-800 flex justify-between items-center bg-black/80 z-20 shrink-0">
-              <span className="text-slate-400 text-[10px] md:text-xs uppercase font-bold flex items-center gap-2"><MapPin size={16} /> Live Satellite Uplink</span>
+              <div className="flex gap-2">
+                 <button onClick={() => setMapMode('satellite')} className={`text-[10px] md:text-xs font-bold px-3 py-1.5 rounded flex items-center gap-2 transition-colors ${mapMode === 'satellite' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}><MapPin size={14} /> Satellite</button>
+                 <button onClick={() => setMapMode('floorplan')} className={`text-[10px] md:text-xs font-bold px-3 py-1.5 rounded flex items-center gap-2 transition-colors ${mapMode === 'floorplan' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'}`}><Layers size={14} /> Floor Plan</button>
+              </div>
               <span className={`${isLoRa ? 'text-purple-500' : 'text-green-500'} text-[10px] md:text-xs font-bold tracking-widest flex items-center gap-2`}>
                  <span className={`w-2 h-2 rounded-full animate-pulse shadow-lg ${isLoRa ? 'bg-purple-500 shadow-purple-500' : 'bg-green-500 shadow-green-500'}`}></span>
                  {isLoRa ? 'LORA MESH ACTIVE' : 'SYSTEM SECURE'}
               </span>
             </div>
             
-            <div className="flex-grow relative flex bg-black overflow-hidden w-full h-full">
-               <iframe 
-                  title="Tactical Map"
-                  src={mapUrl}
-                  className="absolute inset-0 w-full h-full border-0 opacity-80" 
-                  style={{ filter: "sepia(20%) hue-rotate(180deg) saturate(150%) brightness(80%)" }}
-                  allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-               ></iframe>
-               <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
-               <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
-                  <div className="absolute flex flex-col items-center justify-center z-10">
-                    <div className="w-16 h-16 border-2 border-red-500/80 rounded-full absolute"></div>
-                    <div className="w-[100vw] h-px bg-red-500/30 absolute"></div>
-                    <div className="w-px h-[100vh] bg-red-500/30 absolute"></div>
-                    <div className="w-3 h-3 bg-red-500 rounded-full z-10 shadow-[0_0_15px_#ef4444]"></div>
-                    <div className="absolute top-12 bg-black/80 border border-red-900 px-3 py-1.5 text-[10px] text-white font-bold whitespace-nowrap rounded shadow-2xl">
-                      OBJ: {activeResponderAlert.roomId}
-                    </div>
-                  </div>
-               </div>
-            </div>
+            {memoizedMap}
 
             <div className="bg-black/90 border-t border-slate-800 p-3 text-[10px] font-bold text-slate-500 flex justify-between z-20 shrink-0">
               <span className="truncate mr-2 font-mono text-blue-400">LAT/LNG: {activeVenue.lat}, {activeVenue.lng}</span>
@@ -897,7 +1015,6 @@ export default function App() {
     );
   };
 
-  // This architectural change ensures the components don't remount and blink!
   return (
     <div className="h-screen w-full bg-slate-900 text-slate-900 flex flex-col overflow-hidden selection:bg-blue-500/30">
       {currentRole === 'portal' && <Portal />}
