@@ -103,13 +103,11 @@ const notifyStaff = (alert) => {
 // --- Slide To Cancel Component ---
 const SlideToCancel = ({ onCancel }) => {
   const [value, setValue] = useState(0);
-
   const handleChange = (e) => {
     const val = parseInt(e.target.value);
     setValue(val);
     if (val >= 98) onCancel();
   };
-
   const handleRelease = () => { if (value < 98) setValue(0); };
 
   return (
@@ -330,24 +328,24 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center p-6 text-slate-200">
         <div className="w-full max-w-md bg-slate-800/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-2xl border border-slate-700/50 relative">
-          {venues.length === 0 && (<div className="absolute -top-12 left-0 right-0 bg-yellow-500 text-yellow-900 font-bold p-2 rounded-lg text-center text-xs animate-bounce">⚠️ NEW DATABASE - CLICK "SEED DEMO DATA" ⚠️</div>)}
+          {venues.length === 0 && (<div className="absolute -top-12 left-0 right-0 bg-yellow-500 text-yellow-900 font-bold p-2 rounded-lg text-center text-xs animate-bounce shadow-lg">⚠️ NEW DATABASE - CLICK "SEED DEMO DATA" ⚠️</div>)}
           <div className="flex flex-col items-center mb-8">
             <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-4 rounded-2xl mb-4 shadow-[0_0_30px_rgba(37,99,235,0.4)]"><Zap size={32} className="text-white" /></div>
             <h1 className="text-3xl font-black text-white tracking-tight">BeaconNet</h1>
             <p className="text-slate-400 text-sm font-medium mt-1">Unified Emergency Mesh</p>
           </div>
           <div className="flex gap-2 bg-slate-900/50 p-1.5 rounded-xl mb-6 border border-slate-700/50">
-            <button onClick={() => {setLoginType('guest'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'guest' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Citizen</button>
-            <button onClick={() => {setLoginType('staff'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'staff' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Command</button>
-            <button onClick={() => {setLoginType('admin'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Admin</button>
+            <button onClick={() => {setLoginType('guest'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${loginType === 'guest' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Citizen</button>
+            <button onClick={() => {setLoginType('staff'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${loginType === 'staff' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Command</button>
+            <button onClick={() => {setLoginType('admin'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${loginType === 'admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>Admin</button>
           </div>
           <div className="space-y-4">
             {loginType !== 'admin' && (
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Zone Code</label>
                 <div className="mt-1 relative group">
-                  <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
-                  <input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="e.g. VEGAS24" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none uppercase font-mono transition-all" />
+                  <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 transition-colors" />
+                  <input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="e.g. VEGAS24" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white uppercase font-mono outline-none focus:border-blue-500 transition-all" />
                 </div>
               </div>
             )}
@@ -355,17 +353,17 @@ export default function App() {
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Security PIN</label>
                 <div className="mt-1 relative group">
-                  <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
-                  <input type="password" value={staffPin} onChange={e => setStaffPin(e.target.value)} placeholder={loginType === 'admin' ? "Demo: 9999" : "Demo: 1234"} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
+                  <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 transition-colors" />
+                  <input type="password" value={staffPin} onChange={e => setStaffPin(e.target.value)} placeholder={loginType === 'admin' ? "Demo: 9999" : "Demo: 1234"} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white outline-none focus:border-blue-500 transition-all" />
                 </div>
               </div>
             )}
-            {error && <div className="text-red-400 text-sm font-medium bg-red-900/20 p-3.5 rounded-xl border border-red-500/30 flex items-start gap-2 animate-in fade-in zoom-in duration-200"><AlertTriangle size={18} className="shrink-0 mt-0.5" /> {error}</div>}
-            <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl mt-4 transition-all shadow-lg shadow-blue-900/50 flex justify-center items-center gap-2">
+            {error && <div className="text-red-400 text-sm font-medium bg-red-900/20 p-3.5 rounded-xl border border-red-500/30 flex items-start gap-2"><AlertTriangle size={18} className="shrink-0 mt-0.5" /> {error}</div>}
+            <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl mt-4 transition-all shadow-lg flex justify-center items-center gap-2">
                Connect to Mesh <ChevronRight size={18} />
             </button>
           </div>
-          {venues.length === 0 && <button onClick={seedDemoVenues} className="w-full mt-6 bg-emerald-600 text-white font-bold py-3.5 rounded-xl">Seed Demo Data</button>}
+          {venues.length === 0 && <button onClick={seedDemoVenues} className="w-full mt-6 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg">1. Seed Demo Data to Firebase</button>}
         </div>
       </div>
     );
@@ -377,14 +375,13 @@ export default function App() {
     const [editingVenueId, setEditingVenueId] = useState(null);
     const [isLocating, setIsLocating] = useState(false);
     
-    // Hardware Simulator State
     const [iotRoom, setIotRoom] = useState(activeVenue?.rooms?.[0] || '');
     const [iotType, setIotType] = useState('Fire');
     const [iotDevice, setIotDevice] = useState('LoRa Smart Smoke Detector');
 
     // Smart Generator State
     const [baseName, setBaseName] = useState('');
-    const [subZoneInput, setSubZoneInput] = useState('Kitchen, Master Bedroom, Living Room, Guest Bath, Balcony');
+    const [subZoneInput, setSubZoneInput] = useState('Kitchen, Master Bedroom, Living Room, Guest Bath');
 
     useEffect(() => { if (venues.length > 0 && !activeVenue) setActiveVenue(venues[0]); }, [venues]);
 
@@ -392,7 +389,6 @@ export default function App() {
       e.preventDefault();
       const roomsArray = formData.roomsStr.split(/[\n,]+/).map(s => s.trim()).filter(s => s);
       const payload = { name: formData.name, venueType: formData.venueType, code: formData.code.toUpperCase(), lat: formData.lat, lng: formData.lng, floorplanUrl: formData.floorplanUrl, rooms: roomsArray };
-      
       try {
         if (editingVenueId) await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, editingVenueId), payload);
         else await addDoc(collection(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION), payload);
@@ -414,27 +410,17 @@ export default function App() {
       reader.readAsText(file);
     };
 
-    const handleImageClick = (e) => {
-      const roomName = window.prompt("Enter a Zone or Room Name for this pin drop location:");
-      if (roomName) {
-        setFormData(prev => ({
-          ...prev,
-          roomsStr: prev.roomsStr ? prev.roomsStr + '\n' + roomName : roomName
-        }));
-      }
+    const handleImageClick = () => {
+      const roomName = window.prompt("Enter a Zone Name for this pin drop location:");
+      if (roomName) setFormData(prev => ({ ...prev, roomsStr: prev.roomsStr ? prev.roomsStr + '\n' + roomName : roomName }));
     };
 
     const handleGenerateZones = () => {
-       if (!baseName.trim()) return alert("Please enter a Base Address or Building name first.");
-       if (!subZoneInput.trim()) return alert("Please enter at least one sub-zone.");
-       
+       if (!baseName.trim()) return alert("Enter a Base Address first.");
+       if (!subZoneInput.trim()) return alert("Enter sub-zones.");
        const subs = subZoneInput.split(',').map(s => s.trim()).filter(s => s);
        const generatedText = subs.map(sub => `${baseName.trim()} - ${sub}`).join('\n');
-       
-       setFormData(prev => ({
-         ...prev,
-         roomsStr: prev.roomsStr ? prev.roomsStr + '\n' + generatedText : generatedText
-       }));
+       setFormData(prev => ({ ...prev, roomsStr: prev.roomsStr ? prev.roomsStr + '\n' + generatedText : generatedText }));
        setBaseName(''); 
     };
 
@@ -443,10 +429,7 @@ export default function App() {
         if ("geolocation" in navigator) {
             setIsLocating(true);
             navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    setFormData(prev => ({...prev, lat: position.coords.latitude.toFixed(6), lng: position.coords.longitude.toFixed(6)}));
-                    setIsLocating(false);
-                },
+                (position) => { setFormData(prev => ({...prev, lat: position.coords.latitude.toFixed(6), lng: position.coords.longitude.toFixed(6)})); setIsLocating(false); },
                 (error) => { alert("GPS Error. Ensure permissions are granted."); setIsLocating(false); },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
             );
@@ -474,27 +457,27 @@ export default function App() {
                      <div className="flex gap-4">
                          <div className="flex-1">
                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Type</label>
-                           <select value={formData.venueType} onChange={e=>setFormData({...formData, venueType: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700">
+                           <select value={formData.venueType} onChange={e=>setFormData({...formData, venueType: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium">
                                <option value="resort">Hospitality / Resort</option>
                                <option value="neighborhood">Residential / Municipality</option>
                            </select>
                          </div>
                          <div className="flex-1">
                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Zone Name</label>
-                           <input required type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="e.g. Oak Creek" />
+                           <input required type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium" placeholder="e.g. Oak Creek" />
                          </div>
                      </div>
                      
                      <div className="flex gap-4">
                          <div className="w-1/3">
                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Access Code</label>
-                           <input required type="text" value={formData.code} disabled={!!editingVenueId} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-sm uppercase tracking-widest text-slate-800 disabled:opacity-50" placeholder="OAKCREEK" />
+                           <input required type="text" value={formData.code} disabled={!!editingVenueId} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm uppercase tracking-widest disabled:opacity-50" placeholder="OAKCREEK" />
                          </div>
                          <div className="flex-1">
                            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Floor Plan Image Link (Optional)</label>
                            <div className="relative">
                              <ImageIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                             <input type="url" value={formData.floorplanUrl} onChange={e=>setFormData({...formData, floorplanUrl: e.target.value})} className="w-full p-3 pl-9 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm" placeholder="https://imgur.com/your-blueprint.png" />
+                             <input type="url" value={formData.floorplanUrl} onChange={e=>setFormData({...formData, floorplanUrl: e.target.value})} className="w-full p-3 pl-9 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-medium text-sm" placeholder="https://imgur.com/blueprint.png" />
                            </div>
                          </div>
                      </div>
@@ -511,31 +494,23 @@ export default function App() {
                      <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                         <div className="flex justify-between items-center mb-3">
                            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Geographic Bounds</label>
-                           <button onClick={handleAutoDetectGPS} type="button" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-700 active:scale-95 transition-all font-bold shadow-sm">
+                           <button onClick={handleAutoDetectGPS} type="button" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-700 font-bold shadow-sm">
                               {isLocating ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <GpsIcon size={14}/>} Auto-Detect
                            </button>
                         </div>
                         <div className="flex gap-4">
-                            <div className="flex-1"><input required type="text" value={formData.lat} onChange={e=>setFormData({...formData, lat: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="Lat (e.g. 36.112)" /></div>
-                            <div className="flex-1"><input required type="text" value={formData.lng} onChange={e=>setFormData({...formData, lng: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="Lng (e.g. -115.176)" /></div>
+                            <div className="flex-1"><input required type="text" value={formData.lat} onChange={e=>setFormData({...formData, lat: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-mono outline-none focus:border-blue-500" placeholder="Lat (e.g. 36.112)" /></div>
+                            <div className="flex-1"><input required type="text" value={formData.lng} onChange={e=>setFormData({...formData, lng: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-mono outline-none focus:border-blue-500" placeholder="Lng (e.g. -115.176)" /></div>
                         </div>
                      </div>
 
-                     {/* SMART ZONE GENERATOR */}
                      <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
                         <label className="block text-xs font-bold text-indigo-700 uppercase tracking-wider mb-2 flex items-center gap-1.5"><Layers size={14}/> Smart Sub-Zone Generator</label>
                         <p className="text-[10px] text-indigo-500 mb-3">Instantly generate multiple sub-rooms for a single building or address.</p>
-                        
                         <div className="space-y-3">
-                           <div>
-                              <input type="text" value={baseName} onChange={e => setBaseName(e.target.value)} className="w-full p-2.5 bg-white border border-indigo-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-medium" placeholder="Base Address (e.g., Tower A - Apt 102)" />
-                           </div>
-                           <div>
-                              <input type="text" value={subZoneInput} onChange={e => setSubZoneInput(e.target.value)} className="w-full p-2.5 bg-white border border-indigo-200 rounded-lg outline-none focus:ring-2 focus:ring-indigo-400 text-sm font-medium text-slate-600" placeholder="Comma separated sub-zones" />
-                           </div>
-                           <button type="button" onClick={handleGenerateZones} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm transition-all active:scale-95 shadow-sm">
-                             Generate & Add to List ↓
-                           </button>
+                           <div><input type="text" value={baseName} onChange={e => setBaseName(e.target.value)} className="w-full p-2.5 bg-white border border-indigo-200 rounded-lg outline-none focus:border-indigo-400 text-sm" placeholder="Base Address (e.g., Tower A - Apt 102)" /></div>
+                           <div><input type="text" value={subZoneInput} onChange={e => setSubZoneInput(e.target.value)} className="w-full p-2.5 bg-white border border-indigo-200 rounded-lg outline-none focus:border-indigo-400 text-sm" placeholder="Comma separated sub-zones" /></div>
+                           <button type="button" onClick={handleGenerateZones} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 rounded-lg text-sm shadow-sm">Generate & Add to List ↓</button>
                         </div>
                      </div>
 
@@ -547,10 +522,9 @@ export default function App() {
                            <button type="button" className="text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded font-bold flex items-center gap-1 pointer-events-none"><UploadCloud size={14}/> Bulk Upload CSV</button>
                          </div>
                        </div>
-                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-sm leading-relaxed" 
-                       placeholder="Final output will appear here..." rows={6}></textarea>
+                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-blue-500 text-sm leading-relaxed" placeholder="Final output will appear here..." rows={6}></textarea>
                      </div>
-                     <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-md mt-2">
+                     <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 shadow-md">
                        {editingVenueId ? 'Update Infrastructure' : 'Initialize Deployment'}
                      </button>
                   </form>
@@ -565,13 +539,13 @@ export default function App() {
                             <div className="flex gap-4">
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Target Point</label>
-                                    <select value={iotRoom} onChange={e => setIotRoom(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
+                                    <select value={iotRoom} onChange={e => setIotRoom(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm">
                                         {activeVenue.rooms?.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
                                 </div>
                                 <div className="flex-1">
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Sensor Type</label>
-                                    <select value={iotType} onChange={e => setIotType(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
+                                    <select value={iotType} onChange={e => setIotType(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm">
                                         <option value="Fire">Fire / Flood</option>
                                         <option value="Security">Security / Panic</option>
                                         <option value="Medical">Medical Emergency</option>
@@ -580,14 +554,13 @@ export default function App() {
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Network Node</label>
-                                <select value={iotDevice} onChange={e => setIotDevice(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium text-sm">
+                                <select value={iotDevice} onChange={e => setIotDevice(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 text-sm">
                                     <option>LoRa Basement Flood Sensor</option>
                                     <option>LoRa Smart Smoke Detector</option>
                                     <option>Offline LoRa Panic Button</option>
                                 </select>
                             </div>
-
-                            <button onClick={() => triggerAlert(iotType, false, `IoT Sensor (${iotDevice})`, iotRoom)} disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl mt-2 flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+                            <button onClick={() => triggerAlert(iotType, false, `IoT Sensor (${iotDevice})`, iotRoom)} disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(37,99,235,0.3)]">
                                 {isSubmitting ? 'Transmitting...' : 'Trigger Hardware Fault'}
                             </button>
                         </div>
@@ -597,21 +570,18 @@ export default function App() {
                   <div>
                       <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800"><Building size={22} className="text-slate-500"/> Active Networks</h2>
                       {venues.map(v => (
-                        <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-3 group hover:border-blue-300 transition-colors">
+                        <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-3 group hover:border-blue-300">
                             <div className="flex justify-between items-center">
                               <div>
-                                <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                                  {v.venueType === 'neighborhood' ? <Home size={18} className="text-slate-400" /> : <Building size={18} className="text-slate-400" />}
-                                  {v.name}
-                                </h3>
+                                <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">{v.venueType === 'neighborhood' ? <Home size={18} className="text-slate-400" /> : <Building size={18} className="text-slate-400" />} {v.name}</h3>
                                 <div className="flex items-center gap-3 mt-1.5">
                                   <span className="bg-slate-100 text-slate-600 text-xs font-mono font-bold px-2 py-1 rounded-md border border-slate-200">CODE: {v.code}</span>
                                   <span className="text-xs text-slate-400 flex items-center gap-1"><MapPin size={12}/> {v.rooms?.length || 0} Zones</span>
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => handleEdit(v)} title="Edit Infrastructure" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-2.5 rounded-xl transition-colors"><Edit size={20}/></button>
-                                <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, v.id))} title="Delete Infrastructure" className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl transition-colors"><Trash2 size={20}/></button>
+                                <button onClick={() => handleEdit(v)} title="Edit Infrastructure" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-2.5 rounded-xl"><Edit size={20}/></button>
+                                <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, v.id))} title="Delete Infrastructure" className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl"><Trash2 size={20}/></button>
                               </div>
                             </div>
                         </div>
@@ -627,7 +597,7 @@ export default function App() {
 
   // --- 3. Guest/Resident Interface ---
   const GuestInterface = () => {
-    // Language detection dictionary
+    // Dictionary for Multi-language translation via navigator.language
     const isSpanish = navigator.language.startsWith('es');
     const isHindi = navigator.language.startsWith('hi');
     const uiText = {
@@ -642,12 +612,27 @@ export default function App() {
     const currentRoomAlert = alerts.find(a => a.venueId === activeVenue.id && a.roomId === guestRoomId && a.status === 'active');
     const isNeighborhood = activeVenue.venueType === 'neighborhood';
 
+    const [isScanningBLE, setIsScanningBLE] = useState(false);
+
+    // BLE Auto-Locator Simulator
+    const simulateBLEScan = () => {
+      setIsScanningBLE(true);
+      setTimeout(() => {
+        if (activeVenue.rooms && activeVenue.rooms.length > 0) {
+          const randomIndex = Math.floor(Math.random() * activeVenue.rooms.length);
+          const foundRoom = activeVenue.rooms[randomIndex];
+          setGuestRoomId(foundRoom);
+          localStorage.setItem(`beaconnet_room_${activeVenue.id}`, foundRoom);
+        }
+        setIsScanningBLE(false);
+      }, 2000);
+    };
+
+    // Active Panic UI State
     if (currentRoomAlert) {
       const isMedical = currentRoomAlert.type === 'Medical';
-      
       return (
         <div className={`flex flex-col items-center justify-center min-h-screen w-full p-6 text-center text-white overflow-hidden font-sans transition-colors duration-1000 ${isMedical ? 'bg-slate-900' : 'bg-slate-900'}`}>
-          
           {isMedical ? (
             <div className="relative mb-12 mt-4 flex items-center justify-center">
                <div className="absolute w-48 h-48 bg-blue-500/20 rounded-full animate-[ping_4s_cubic-bezier(0.4,0,0.6,1)_infinite]"></div>
@@ -671,7 +656,6 @@ export default function App() {
              <p className="text-slate-300 mb-8 max-w-sm text-lg font-medium">Response teams are routing to <span className="text-white font-bold block mt-1">{guestRoomId}</span></p>
           )}
           
-          {/* Slide to Cancel Integration */}
           <div className="mt-auto mb-12 w-full flex justify-center">
              <SlideToCancel onCancel={() => resolveAlert(currentRoomAlert.id)} />
           </div>
@@ -679,6 +663,7 @@ export default function App() {
       );
     }
 
+    // Default Dashboard State
     return (
       <div className="w-full h-full bg-slate-100 overflow-y-auto font-sans">
         <div className="max-w-md mx-auto min-h-full bg-white shadow-2xl flex flex-col relative">
@@ -688,28 +673,30 @@ export default function App() {
                <div className="inline-flex items-center px-3 py-1.5 bg-blue-50 rounded-xl border border-blue-100">
                  <Zap className="text-blue-600 mr-1.5" size={16} /><span className="font-bold text-xs tracking-tight text-blue-900">BeaconNet Node</span>
                </div>
-               <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 p-2 rounded-lg transition-colors active:scale-95"><LogOut size={18}/></button>
+               <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 p-2 rounded-lg active:scale-95"><LogOut size={18}/></button>
             </div>
             <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">{activeVenue.name}</h1>
-            <div className="mt-4 flex items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors p-3 rounded-xl border border-slate-200 group">
-              <MapPin size={16} className="text-slate-400 mr-2 group-focus-within:text-blue-500 transition-colors shrink-0"/>
-              <select value={guestRoomId} onChange={handleRoomChange} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full appearance-none truncate">
-                <option value="" disabled>Select {isNeighborhood ? 'Your Specific Zone/Address' : 'Your Specific Zone'}...</option>
-                {activeVenue.rooms?.map(id => <option key={id} value={id}>{id}</option>)}
-              </select>
+            
+            <div className="mt-4 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden group focus-within:border-blue-400 transition-colors">
+              <div className="flex items-center p-1.5">
+                <button onClick={simulateBLEScan} disabled={isScanningBLE} className={`shrink-0 p-2.5 rounded-lg flex items-center justify-center transition-all ${isScanningBLE ? 'bg-blue-100 text-blue-600' : 'bg-white text-slate-400 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 shadow-sm active:scale-95'}`} title="Auto-Detect Location via BLE Beacons">
+                  {isScanningBLE ? <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin" /> : <Crosshair size={18} />}
+                </button>
+                <select value={guestRoomId} onChange={handleRoomChange} disabled={isScanningBLE} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full text-center appearance-none px-3 disabled:opacity-50">
+                  <option value="" disabled>{isScanningBLE ? 'Triangulating indoor position...' : (isNeighborhood ? 'Select Your Address...' : 'Select Your Zone...')}</option>
+                  {activeVenue.rooms?.map(id => <option key={id} value={id}>{id}</option>)}
+                </select>
+                {guestRoomId && !isScanningBLE && <CheckCircle2 size={18} className="text-emerald-500 shrink-0 mr-2 opacity-70" />}
+              </div>
             </div>
+            {isScanningBLE && <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest mt-2 animate-pulse">Scanning local BLE mesh...</p>}
           </div>
 
           <div className="flex-grow px-6 py-6 space-y-4 bg-slate-50/50">
             <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 p-4 rounded-3xl flex items-center justify-between shadow-sm mb-4">
               <div className="flex items-center gap-3">
-                 <div className={`p-2.5 rounded-2xl transition-colors ${useLoraMesh ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' : 'bg-white text-purple-400 border border-purple-100'}`}>
-                    <WifiOff size={20} />
-                 </div>
-                 <div>
-                    <h3 className="font-bold text-purple-900 text-sm">Internet Down?</h3>
-                    <p className="text-[10px] text-purple-600 font-semibold uppercase tracking-wider mt-0.5">Simulate LoRa Mesh</p>
-                 </div>
+                 <div className={`p-2.5 rounded-2xl transition-colors ${useLoraMesh ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' : 'bg-white text-purple-400 border border-purple-100'}`}><WifiOff size={20} /></div>
+                 <div><h3 className="font-bold text-purple-900 text-sm">Internet Down?</h3><p className="text-[10px] text-purple-600 font-semibold uppercase tracking-wider mt-0.5">Simulate LoRa Mesh</p></div>
               </div>
               <label className="relative inline-flex items-center cursor-pointer active:scale-95 transition-transform">
                 <input type="checkbox" className="sr-only peer" checked={useLoraMesh} onChange={() => setUseLoraMesh(!useLoraMesh)} />
@@ -719,41 +706,28 @@ export default function App() {
 
             <button onClick={() => triggerAlert('Medical')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
               <div className="bg-red-50 text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><Activity size={28} /></div>
-              <div className="text-left flex-grow">
-                <h2 className="text-xl font-black text-slate-800">{uiText.med}</h2>
-                <p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc1}</p>
-              </div>
+              <div className="text-left flex-grow"><h2 className="text-xl font-black text-slate-800">{uiText.med}</h2><p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc1}</p></div>
               <ChevronRight size={24} className="text-slate-300 group-hover:text-red-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
             <button onClick={() => triggerAlert('Fire')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-orange-50 border border-slate-200 hover:border-orange-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
               <div className="bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><Flame size={28} /></div>
-              <div className="text-left flex-grow">
-                <h2 className="text-xl font-black text-slate-800">{uiText.fire}</h2>
-                <p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc2}</p>
-              </div>
+              <div className="text-left flex-grow"><h2 className="text-xl font-black text-slate-800">{uiText.fire}</h2><p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc2}</p></div>
               <ChevronRight size={24} className="text-slate-300 group-hover:text-orange-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
             <button onClick={() => triggerAlert('Security')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
               <div className="bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><ShieldAlert size={28} /></div>
-              <div className="text-left flex-grow">
-                <h2 className="text-xl font-black text-slate-800">{uiText.sec}</h2>
-                <p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc3}</p>
-              </div>
+              <div className="text-left flex-grow"><h2 className="text-xl font-black text-slate-800">{uiText.sec}</h2><p className="text-slate-500 text-xs font-medium mt-0.5">{uiText.desc3}</p></div>
               <ChevronRight size={24} className="text-slate-300 group-hover:text-blue-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
             <div className="bg-white p-5 rounded-[2rem] border border-slate-200 mt-8 shadow-sm">
               <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 ml-1 flex items-center gap-1.5"><Zap size={12} className="text-blue-500"/> Custom AI Alert</label>
-              <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all items-center">
-                <button onClick={handleVoiceInput} className={`p-2 rounded-full transition-colors shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500 hover:bg-blue-100 hover:text-blue-600'}`}>
-                   <Mic size={18} />
-                </button>
+              <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 items-center">
+                <button onClick={handleVoiceInput} className={`p-2 rounded-full transition-colors shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-200 text-slate-500 hover:bg-blue-100 hover:text-blue-600'}`}><Mic size={18} /></button>
                 <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Speak or type..." className="flex-grow p-2 text-sm font-medium bg-transparent text-slate-800 outline-none min-w-0" disabled={isSubmitting} />
-                <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold hover:bg-blue-600 disabled:opacity-50 transition-all active:scale-95 shrink-0 flex items-center justify-center min-w-[80px]">
-                  {isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Send'}
-                </button>
+                <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold hover:bg-blue-600 disabled:opacity-50 active:scale-95 shrink-0 min-w-[80px]">{isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : 'Send'}</button>
               </div>
             </div>
             <div className="h-12 w-full"></div>
@@ -775,26 +749,20 @@ export default function App() {
 
         <div className="md:hidden w-full bg-slate-900 text-white p-4 flex justify-between items-center shrink-0 z-20 shadow-lg">
           <div className="flex items-center gap-2 font-black text-lg"><Zap className="text-blue-500" size={20} /> Command</div>
-          <button onClick={handleLogout} className="text-white hover:text-red-400 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-colors active:scale-95">
-            LOGOUT <LogOut size={14} />
-          </button>
+          <button onClick={handleLogout} className="text-white hover:text-red-400 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold active:scale-95">LOGOUT <LogOut size={14} /></button>
         </div>
 
         <div className="hidden md:flex w-24 bg-slate-900 flex-col items-center py-6 shadow-2xl z-20 shrink-0 relative">
           <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-3.5 rounded-2xl mb-8 shadow-lg shadow-blue-900/50"><Zap className="text-white" size={28} /></div>
           <div className="flex flex-col gap-6 w-full items-center">
-            <button className={`p-3.5 rounded-2xl relative transition-all duration-300 ${isRedAlert ? 'bg-red-500 text-white animate-bounce shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white'}`}>
-              <Crosshair size={26} />
-            </button>
+            <button className={`p-3.5 rounded-2xl relative transition-all duration-300 ${isRedAlert ? 'bg-red-500 text-white animate-bounce shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white'}`}><Crosshair size={26} /></button>
           </div>
         </div>
 
         <div className="w-full md:w-[480px] bg-white border-r border-slate-200 flex flex-col h-[50vh] md:h-full z-10 shadow-xl shrink-0">
           <div className="hidden md:flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/80 backdrop-blur shrink-0">
              <div className="text-xs font-bold text-slate-500 uppercase tracking-widest"><Building size={14} className="inline mr-1 -mt-0.5"/> {activeVenue.name}</div>
-             <button onClick={handleLogout} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95">
-                <LogOut size={14}/> LOGOUT
-             </button>
+             <button onClick={handleLogout} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold active:scale-95 shadow-sm"><LogOut size={14}/> LOGOUT</button>
           </div>
 
           <div className={`p-5 md:p-6 border-b shrink-0 transition-colors duration-300 ${isRedAlert ? 'bg-red-600 border-red-700 text-white shadow-inner' : 'bg-white border-slate-100'}`}>
@@ -850,13 +818,13 @@ export default function App() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => { setCurrentRole('responder'); setActiveResponderAlert(alert); setResponderEndTime(Date.now() + 180000); }} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors shadow-sm active:scale-95 flex items-center justify-center gap-2">
+                  <button onClick={() => { setCurrentRole('responder'); setActiveResponderAlert(alert); setResponderEndTime(Date.now() + 180000); }} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 shadow-sm active:scale-95 flex items-center justify-center gap-2">
                     <MapIcon size={14} /> Tactical UI
                   </button>
-                  <button onClick={() => toggleMute(alert.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-colors shadow-sm border ${isMuted ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
+                  <button onClick={() => toggleMute(alert.id)} className={`px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm border ${isMuted ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'}`}>
                     {isMuted ? <Volume2 size={16}/> : <VolumeX size={16}/>}
                   </button>
-                  <button onClick={() => resolveAlert(alert.id)} className="px-5 bg-white border border-slate-300 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-red-600 transition-colors shadow-sm active:scale-95">Clear</button>
+                  <button onClick={() => resolveAlert(alert.id)} className="px-5 bg-white border border-slate-300 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-red-600 shadow-sm active:scale-95">Clear</button>
                 </div>
               </div>
             )})}
