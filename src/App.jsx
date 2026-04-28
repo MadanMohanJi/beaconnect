@@ -10,7 +10,6 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 // --- Firebase Configuration ---
-// Make sure your exact keys are still here!
 const firebaseConfig = {
   apiKey: "AIzaSyBgo3ir7Y5GSck3rIU1c3Dnlva6_RsgaVQ",
   authDomain: "beaconnect-fc92a.firebaseapp.com",
@@ -29,7 +28,7 @@ const ALERTS_COLLECTION = 'alerts_v6';
 const VENUES_COLLECTION = 'venues_v6';
 
 // --- Gemini API Setup ---
-const geminiApiKey = "YOUR_GEMINI_API_KEY_HERE"; // <--- PASTE YOUR KEY HERE
+const geminiApiKey = "YOUR_GEMINI_API_KEY_HERE"; // <--- PASTE YOUR GEMINI KEY HERE
 const MODEL_NAME = "gemini-2.5-flash";
 
 async function fetchWithRetry(url, options, maxRetries = 5) {
@@ -50,12 +49,9 @@ async function fetchWithRetry(url, options, maxRetries = 5) {
 async function analyzeEmergency(text) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${geminiApiKey}`;
   const systemInstruction = `You are an advanced enterprise emergency triage AI. 
-  Analyze the user's distress message. 
-  Categorize type (Fire, Medical, Security, or General). 
-  Assess severity (Critical, High, Medium, Low). 
-  Provide a concise 1-sentence summary and a Spanish translation.
-  Generate 2-3 short action tags (e.g., ["Bleeding", "Needs AED"]).
-  Output strictly as JSON.`;
+  Analyze the user's distress message. Categorize type (Fire, Medical, Security, or General). 
+  Assess severity (Critical, High, Medium, Low). Provide a concise 1-sentence summary and a Spanish translation.
+  Generate 2-3 short action tags (e.g., ["Bleeding", "Needs AED"]). Output strictly as JSON.`;
 
   const payload = {
     contents: [{ parts: [{ text }] }],
@@ -89,21 +85,25 @@ async function analyzeEmergency(text) {
 }
 
 const triggerHardwareAlarm = () => {
-  if ("vibrate" in navigator) navigator.vibrate([500, 200, 500, 200, 500]);
+  if ("vibrate" in navigator) navigator.vibrate([200, 100, 200]);
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (AudioContext) {
       const ctx = new AudioContext();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.3);
+      
+      osc.type = 'sine'; 
+      osc.frequency.setValueAtTime(900, ctx.currentTime); 
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5);
-      osc.stop(ctx.currentTime + 0.5);
+      
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05); 
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.5);
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 1.5);
     }
   } catch (e) { console.warn("Audio alarm blocked"); }
 };
@@ -122,6 +122,29 @@ const notifyStaff = (alert) => {
   }
 };
 
+// --- ISOLATED TIMER COMPONENT ---
+// This guarantees the map will never blink, because the countdown logic 
+// is separated from the main app's redraw cycle!
+const CountdownTimer = ({ initialEta, isLoRa }) => {
+  const [eta, setEta] = useState(initialEta);
+  
+  useEffect(() => {
+    if (eta > 0) {
+      const timer = setInterval(() => setEta(prev => prev - 1), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [eta]);
+
+  return (
+    <div className="text-right shrink-0">
+      <div className="text-2xl md:text-4xl font-light text-white">
+        {Math.floor(eta / 60)}:{(eta % 60).toString().padStart(2, '0')}
+      </div>
+      <div className={`text-[8px] md:text-[10px] font-bold uppercase tracking-widest ${isLoRa ? 'text-purple-400' : 'text-red-400'}`}>Est. Arrival</div>
+    </div>
+  );
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [alerts, setAlerts] = useState([]);
@@ -134,17 +157,14 @@ export default function App() {
   const [customText, setCustomText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useLoraMesh, setUseLoraMesh] = useState(false);
-
   const [activeResponderAlert, setActiveResponderAlert] = useState(null);
-  const [responderEta, setResponderEta] = useState(180);
 
   const prevAlertCountRef = useRef(0);
 
   useEffect(() => {
     const initAuth = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (err) { console.error("Auth error:", err); }
+      try { await signInAnonymously(auth); } 
+      catch (err) { console.error("Auth error:", err); }
     };
     initAuth();
     const unsubscribe = onAuthStateChanged(auth, setUser);
@@ -162,16 +182,6 @@ export default function App() {
       if (activeVenue) {
         const updated = fetchedVenues.find(v => v.id === activeVenue.id);
         if (updated) setActiveVenue(updated);
-      }
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const venueCodeLink = urlParams.get('venue');
-      if (venueCodeLink && currentRole === 'portal') {
-         const linkedVenue = fetchedVenues.find(v => v.code === venueCodeLink);
-         if (linkedVenue) {
-            setActiveVenue(linkedVenue);
-            setCurrentRole('guest');
-         }
       }
     });
 
@@ -198,13 +208,6 @@ export default function App() {
   }, [user, activeVenue?.id, activeResponderAlert?.id, currentRole]);
 
   useEffect(() => {
-    if (currentRole === 'responder' && responderEta > 0 && activeResponderAlert) {
-      const timer = setInterval(() => setResponderEta(prev => prev - 1), 1000);
-      return () => clearInterval(timer);
-    }
-  }, [currentRole, responderEta, activeResponderAlert]);
-
-  useEffect(() => {
     let alarmInterval;
     const activeAlerts = alerts.filter(a => a.status === 'active' && a.venueId === activeVenue?.id);
     if ((currentRole === 'staff' || currentRole === 'responder') && activeAlerts.length > 0) {
@@ -214,7 +217,6 @@ export default function App() {
   }, [currentRole, alerts, activeVenue?.id]);
 
   const handleLogout = () => {
-    window.history.replaceState({}, document.title, window.location.pathname); 
     setCurrentRole('portal');
     setActiveVenue(null);
     setGuestRoomId('');
@@ -339,60 +341,58 @@ export default function App() {
     };
 
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-6 text-slate-200">
-        <div className="w-full max-w-md bg-slate-800 rounded-3xl p-8 shadow-2xl border border-slate-700 relative">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center p-6 text-slate-200">
+        <div className="w-full max-w-md bg-slate-800/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-2xl border border-slate-700/50 relative">
           
-          {/* Prominent warning if database is empty */}
           {venues.length === 0 && (
              <div className="absolute -top-12 left-0 right-0 bg-yellow-500 text-yellow-900 font-bold p-2 rounded-lg text-center text-xs animate-bounce shadow-lg">
-               ⚠️ DATABASE IS EMPTY - CLICK "SEED DEMO DATA" BELOW ⚠️
+               ⚠️ NEW DATABASE - CLICK "SEED DEMO DATA" BELOW ⚠️
              </div>
           )}
 
           <div className="flex flex-col items-center mb-8">
-            <div className="bg-blue-600 p-4 rounded-2xl mb-4 shadow-[0_0_20px_rgba(37,99,235,0.4)]"><Zap size={32} className="text-white" /></div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">BeaconNet</h1>
-            <p className="text-slate-400 text-sm">Unified Emergency Mesh</p>
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-4 rounded-2xl mb-4 shadow-[0_0_30px_rgba(37,99,235,0.4)]"><Zap size={32} className="text-white" /></div>
+            <h1 className="text-3xl font-black text-white tracking-tight">BeaconNet</h1>
+            <p className="text-slate-400 text-sm font-medium mt-1">Unified Emergency Mesh</p>
           </div>
 
-          <div className="flex gap-2 bg-slate-900 p-1.5 rounded-xl mb-6">
-            <button onClick={() => {setLoginType('guest'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${loginType === 'guest' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Citizen</button>
-            <button onClick={() => {setLoginType('staff'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${loginType === 'staff' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Command</button>
-            <button onClick={() => {setLoginType('admin'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${loginType === 'admin' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Admin</button>
+          <div className="flex gap-2 bg-slate-900/50 p-1.5 rounded-xl mb-6 border border-slate-700/50">
+            <button onClick={() => {setLoginType('guest'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'guest' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Citizen</button>
+            <button onClick={() => {setLoginType('staff'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'staff' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Command</button>
+            <button onClick={() => {setLoginType('admin'); setError('');}} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all duration-300 ${loginType === 'admin' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800'}`}>Admin</button>
           </div>
 
           <div className="space-y-4">
             {loginType !== 'admin' && (
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Zone Code</label>
-                <div className="mt-1 relative">
-                  <Building size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="e.g. VEGAS24" className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white focus:ring-2 focus:ring-blue-500 outline-none uppercase font-mono" />
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Zone Code</label>
+                <div className="mt-1 relative group">
+                  <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
+                  <input type="text" value={accessCode} onChange={e => setAccessCode(e.target.value.toUpperCase())} placeholder="e.g. VEGAS24" className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none uppercase font-mono transition-all" />
                 </div>
               </div>
             )}
 
             {(loginType === 'staff' || loginType === 'admin') && (
               <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Security PIN</label>
-                <div className="mt-1 relative">
-                  <KeyRound size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input type="password" value={staffPin} onChange={e => setStaffPin(e.target.value)} placeholder={loginType === 'admin' ? "Demo: 9999" : "Demo: 1234"} className="w-full bg-slate-900 border border-slate-700 rounded-xl py-3 pl-10 pr-4 text-white focus:ring-2 focus:ring-blue-500 outline-none" />
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Security PIN</label>
+                <div className="mt-1 relative group">
+                  <KeyRound size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" />
+                  <input type="password" value={staffPin} onChange={e => setStaffPin(e.target.value)} placeholder={loginType === 'admin' ? "Demo: 9999" : "Demo: 1234"} className="w-full bg-slate-900/50 border border-slate-700 rounded-xl py-3.5 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all" />
                 </div>
               </div>
             )}
 
-            {error && <div className="text-red-400 text-sm font-medium bg-red-900/20 p-3 rounded-lg border border-red-500/20 flex items-start gap-2"><AlertTriangle size={16} className="shrink-0 mt-0.5" /> {error}</div>}
+            {error && <div className="text-red-400 text-sm font-medium bg-red-900/20 p-3.5 rounded-xl border border-red-500/30 flex items-start gap-2 animate-in fade-in zoom-in duration-200"><AlertTriangle size={18} className="shrink-0 mt-0.5" /> {error}</div>}
 
-            <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl mt-4 transition-colors flex justify-center items-center gap-2">
+            <button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl mt-4 transition-all shadow-lg shadow-blue-900/50 flex justify-center items-center gap-2">
                Connect to Mesh <ChevronRight size={18} />
             </button>
           </div>
-          
-          {/* Seed button is always visible until clicked for safety during hackathons */}
+
           {venues.length === 0 && (
-             <button onClick={seedDemoVenues} disabled={isSeeding} className="w-full mt-6 bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-green-900/50">
-               {isSeeding ? 'Injecting Data...' : '1. Seed Demo Data to Firebase'}
+             <button onClick={seedDemoVenues} disabled={isSeeding} className="w-full mt-6 bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-emerald-900/50 flex justify-center items-center gap-2">
+               {isSeeding ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '1. Seed Demo Data to Firebase'}
              </button>
           )}
         </div>
@@ -414,30 +414,12 @@ export default function App() {
     const handleSave = async (e) => {
       e.preventDefault();
       const roomsArray = formData.roomsStr.split(',').map(s => s.trim()).filter(s => s);
-      const newVenue = { 
-        name: formData.name, 
-        venueType: formData.venueType, 
-        code: formData.code.toUpperCase(), 
-        lat: formData.lat, 
-        lng: formData.lng, 
-        rooms: roomsArray 
-      };
-      
+      const newVenue = { name: formData.name, venueType: formData.venueType, code: formData.code.toUpperCase(), lat: formData.lat, lng: formData.lng, rooms: roomsArray };
       try {
-        // Try to save to Firebase
         await addDoc(collection(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION), newVenue);
-        
-        // Clear the form
         setFormData({ name: '', venueType: 'resort', code: '', lat: '', lng: '', roomsStr: '' });
-        
-        // Show a success popup!
-        alert("Success! Infrastructure created. You should see it in the list on the right.");
-        
-      } catch(err) { 
-        console.error(err); 
-        // Show the exact error on the screen if it fails
-        alert("Error creating infrastructure: " + err.message);
-      }
+        alert("Success! Infrastructure created.");
+      } catch(err) { alert("Error: " + err.message); }
     };
 
     const handleAutoDetectGPS = (e) => {
@@ -450,86 +432,86 @@ export default function App() {
                     setIsLocating(false);
                 },
                 (error) => {
-                    alert("Could not access GPS. Please ensure location permissions are granted.");
+                    console.error("GPS Error:", error);
+                    let errMsg = "Could not fetch location.";
+                    if (error.code === 1) errMsg = "Location permission was denied by your browser. Please click the lock icon next to the URL bar and allow location access.";
+                    if (error.code === 2) errMsg = "Position unavailable. You might be disconnected from the network.";
+                    if (error.code === 3) errMsg = "GPS request timed out.";
+                    alert(errMsg);
                     setIsLocating(false);
-                }
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 } 
             );
         } else { alert("GPS Geolocation is not supported by your browser."); }
     };
 
-    const copyDeepLink = (code) => {
-        const link = `${window.location.origin}${window.location.pathname}?venue=${code}`;
-        navigator.clipboard.writeText(link);
-        alert(`Copied Resident/Guest Link:\n${link}`);
-    };
-
     return (
-      <div className="min-h-screen bg-slate-100 p-4 md:p-8 overflow-y-auto">
-         <div className="max-w-4xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
-               <h1 className="text-3xl font-black text-slate-900">Platform Admin</h1>
-               <button onClick={handleLogout} className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg border border-slate-300 shadow-sm text-slate-600 hover:text-red-600"><LogOut size={16}/> Logout</button>
+      <div className="min-h-screen bg-slate-50 p-4 md:p-8 overflow-y-auto font-sans">
+         <div className="max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+               <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3"><Zap className="text-blue-600"/> Platform Admin</h1>
+               <button onClick={handleLogout} className="flex items-center gap-2 bg-red-50 text-red-600 px-5 py-2.5 rounded-xl font-bold hover:bg-red-600 hover:text-white transition-all active:scale-95"><LogOut size={18}/> Logout</button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                  <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Plus size={20}/> Add New Infrastructure</h2>
-                  <form onSubmit={handleSave} className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+               <div className="bg-white p-6 md:p-8 rounded-3xl shadow-sm border border-slate-200">
+                  <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-800"><Plus size={22} className="text-blue-500"/> Deploy Infrastructure</h2>
+                  <form onSubmit={handleSave} className="space-y-5">
                      <div className="flex gap-4">
                          <div className="flex-1">
-                           <label className="block text-sm font-bold text-slate-700 mb-1">Infrastructure Type</label>
-                           <select value={formData.venueType} onChange={e=>setFormData({...formData, venueType: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none">
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Type</label>
+                           <select value={formData.venueType} onChange={e=>setFormData({...formData, venueType: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium text-slate-700">
                                <option value="resort">Hospitality / Resort</option>
                                <option value="neighborhood">Residential / Municipality</option>
                            </select>
                          </div>
                          <div className="flex-1">
-                           <label className="block text-sm font-bold text-slate-700 mb-1">Zone Name</label>
-                           <input required type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" placeholder="e.g. Oak Creek" />
+                           <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Zone Name</label>
+                           <input required type="text" value={formData.name} onChange={e=>setFormData({...formData, name: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="e.g. Oak Creek" />
                          </div>
                      </div>
                      <div>
-                       <label className="block text-sm font-bold text-slate-700 mb-1">Access Code (Unique)</label>
-                       <input required type="text" value={formData.code} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none uppercase font-mono" placeholder="e.g. OAKCREEK" />
+                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Access Code (Unique)</label>
+                       <input required type="text" value={formData.code} onChange={e=>setFormData({...formData, code: e.target.value.toUpperCase()})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-lg uppercase tracking-widest text-slate-800" placeholder="e.g. OAKCREEK" />
                      </div>
                      
-                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                        <div className="flex justify-between items-center mb-2">
-                           <label className="block text-sm font-bold text-slate-700">Geographic Bounds</label>
-                           <button onClick={handleAutoDetectGPS} type="button" className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center gap-1 hover:bg-blue-200 transition-colors font-bold">
-                              {isLocating ? <div className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/> : <GpsIcon size={12}/>} Auto-Detect
+                     <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
+                        <div className="flex justify-between items-center mb-3">
+                           <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">Geographic Bounds</label>
+                           <button onClick={handleAutoDetectGPS} type="button" className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-700 active:scale-95 transition-all font-bold shadow-sm">
+                              {isLocating ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"/> : <GpsIcon size={14}/>} Auto-Detect
                            </button>
                         </div>
                         <div className="flex gap-4">
-                            <div className="flex-1"><input required type="text" value={formData.lat} onChange={e=>setFormData({...formData, lat: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded outline-none text-sm" placeholder="Lat" /></div>
-                            <div className="flex-1"><input required type="text" value={formData.lng} onChange={e=>setFormData({...formData, lng: e.target.value})} className="w-full p-2 bg-white border border-slate-300 rounded outline-none text-sm" placeholder="Lng" /></div>
+                            <div className="flex-1"><input required type="text" value={formData.lat} onChange={e=>setFormData({...formData, lat: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="Lat (e.g. 36.112)" /></div>
+                            <div className="flex-1"><input required type="text" value={formData.lng} onChange={e=>setFormData({...formData, lng: e.target.value})} className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono" placeholder="Lng (e.g. -115.176)" /></div>
                         </div>
                      </div>
 
                      <div>
-                       <label className="block text-sm font-bold text-slate-700 mb-1">Addresses / Zones (Comma Separated)</label>
-                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none" placeholder="101 Maple St, 102 Maple St..." rows={3}></textarea>
+                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Addresses / Zones (Comma Separated)</label>
+                       <textarea required value={formData.roomsStr} onChange={e=>setFormData({...formData, roomsStr: e.target.value})} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all font-medium" placeholder="101 Maple St, 102 Maple St..." rows={3}></textarea>
                      </div>
-                     <button type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg hover:bg-slate-800 transition-colors">Create Infrastructure</button>
+                     <button type="submit" className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-md mt-2">Initialize Deployment</button>
                   </form>
                </div>
 
                <div className="space-y-6">
-                  <div className="bg-slate-900 p-6 rounded-2xl shadow-xl border border-slate-800 text-slate-200">
-                      <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-white"><Cpu size={20} className="text-blue-500"/> IoT / LoRa Simulator</h2>
-                      
+                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 md:p-8 rounded-3xl shadow-xl border border-slate-700 text-slate-200 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none"><Cpu size={120} /></div>
+                      <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-white relative z-10"><Cpu size={22} className="text-blue-400"/> Hardware Simulator</h2>
                       {activeVenue ? (
-                        <div className="space-y-4">
+                        <div className="space-y-5 relative z-10">
                             <div className="flex gap-4">
                                 <div className="flex-1">
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Target Address</label>
-                                    <select value={iotRoom} onChange={e => setIotRoom(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Target Point</label>
+                                    <select value={iotRoom} onChange={e => setIotRoom(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium">
                                         {activeVenue.rooms?.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
                                 </div>
                                 <div className="flex-1">
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Category</label>
-                                    <select value={iotType} onChange={e => setIotType(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Sensor Type</label>
+                                    <select value={iotType} onChange={e => setIotType(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium">
                                         <option value="Fire">Fire / Flood</option>
                                         <option value="Security">Security / Panic</option>
                                         <option value="Medical">Medical Emergency</option>
@@ -537,40 +519,43 @@ export default function App() {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Network Device</label>
-                                <select value={iotDevice} onChange={e => setIotDevice(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white outline-none">
+                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Network Node</label>
+                                <select value={iotDevice} onChange={e => setIotDevice(e.target.value)} className="w-full bg-slate-800/80 backdrop-blur border border-slate-600 rounded-xl p-3 text-white outline-none focus:border-blue-500 transition-colors font-medium">
                                     <option>LoRa Basement Flood Sensor</option>
                                     <option>LoRa Smart Smoke Detector</option>
                                     <option>Offline LoRa Panic Button</option>
                                 </select>
                             </div>
 
-                            <button onClick={() => triggerAlert(iotType, false, `IoT Sensor (${iotDevice})`, iotRoom)} disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-lg mt-2 flex items-center justify-center gap-2">
-                                {isSubmitting ? 'Transmitting...' : 'Trigger Hardware Sensor'}
+                            <button onClick={() => triggerAlert(iotType, false, `IoT Sensor (${iotDevice})`, iotRoom)} disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl mt-2 flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)]">
+                                {isSubmitting ? 'Transmitting...' : 'Trigger Hardware Fault'}
                             </button>
                         </div>
-                      ) : <div className="text-yellow-500 text-sm">Create an infrastructure block first.</div>}
+                      ) : <div className="text-yellow-400 text-sm font-medium bg-yellow-900/30 p-4 rounded-xl border border-yellow-700/50">Deploy an infrastructure block first to use the simulator.</div>}
                   </div>
 
                   <div>
-                      <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-800"><Building size={20}/> Managed Infrastructures</h2>
+                      <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-slate-800"><Building size={22} className="text-slate-500"/> Active Networks</h2>
                       {venues.map(v => (
-                        <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-4">
-                            <div className="flex justify-between items-start">
+                        <div key={v.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 mb-3 group hover:border-blue-300 transition-colors">
+                            <div className="flex justify-between items-center">
                               <div>
                                 <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
-                                  {v.venueType === 'neighborhood' ? <Home size={18} className="text-slate-500" /> : <Building size={18} className="text-slate-500" />}
+                                  {v.venueType === 'neighborhood' ? <Home size={18} className="text-slate-400" /> : <Building size={18} className="text-slate-400" />}
                                   {v.name}
                                 </h3>
-                                <span className="inline-block bg-slate-100 text-slate-600 text-xs font-mono px-2 py-1 rounded mt-1 border border-slate-200">CODE: {v.code}</span>
+                                <div className="flex items-center gap-3 mt-1.5">
+                                  <span className="bg-slate-100 text-slate-600 text-xs font-mono font-bold px-2 py-1 rounded-md border border-slate-200">CODE: {v.code}</span>
+                                  <span className="text-xs text-slate-400 flex items-center gap-1"><MapPin size={12}/> {v.rooms?.length || 0} Nodes</span>
+                                </div>
                               </div>
                               <div className="flex gap-2">
-                                <button onClick={() => copyDeepLink(v.code)} title="Copy Citizen App Link" className="text-blue-500 hover:bg-blue-50 p-2 rounded-lg border border-blue-100"><LinkIcon size={18}/></button>
-                                <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, v.id))} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg"><Trash2 size={18}/></button>
+                                <button onClick={() => deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', VENUES_COLLECTION, v.id))} className="text-slate-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl transition-colors"><Trash2 size={20}/></button>
                               </div>
                             </div>
                         </div>
                       ))}
+                      {venues.length === 0 && <div className="text-center p-8 bg-white rounded-2xl border border-slate-200 text-slate-400 text-sm">No networks deployed yet.</div>}
                   </div>
                </div>
             </div>
@@ -586,101 +571,103 @@ export default function App() {
 
     if (currentRoomAlert) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen w-full p-6 text-center bg-slate-900 text-white overflow-y-auto">
-          <div className="relative mb-6 mt-4">
-             <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-20"></div>
-             <div className="bg-red-600 p-6 rounded-full shadow-[0_0_40px_rgba(220,38,38,0.5)] z-10 relative"><Radio size={40} className="animate-pulse" /></div>
+        <div className="flex flex-col items-center justify-center min-h-screen w-full p-6 text-center bg-slate-900 text-white overflow-y-auto font-sans">
+          <div className="relative mb-8 mt-4">
+             <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-20 scale-150"></div>
+             <div className="bg-gradient-to-br from-red-500 to-red-700 p-8 rounded-full shadow-[0_0_50px_rgba(220,38,38,0.6)] z-10 relative border border-red-400/50"><Radio size={48} className="animate-pulse text-white" /></div>
           </div>
-          <h2 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">SOS Transmitting</h2>
-          <p className="text-slate-300 mb-6 max-w-sm text-md">Response teams are routing to {guestRoomId}.</p>
-          <div className="bg-slate-800 p-5 rounded-2xl border border-slate-700 w-full max-w-md mb-6">
-            <h3 className="font-semibold text-slate-100 mb-3 flex items-center justify-center gap-2"><ShieldAlert size={18} className="text-red-400" /> Action Required</h3>
+          <h2 className="text-3xl md:text-4xl font-black mb-2 tracking-tight">SOS Transmitting</h2>
+          <p className="text-slate-300 mb-8 max-w-sm text-lg font-medium">Response teams are routing to <span className="text-white font-bold">{guestRoomId}</span>.</p>
+          
+          <div className="bg-slate-800/80 backdrop-blur p-6 rounded-3xl border border-slate-700 w-full max-w-md mb-8 shadow-2xl">
+            <h3 className="font-bold text-slate-100 mb-4 flex items-center justify-center gap-2 text-lg"><ShieldAlert size={20} className="text-red-400" /> Critical Instructions</h3>
             <ul className="text-left text-slate-300 space-y-3">
-              <li className="flex items-start gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 text-sm">
-                <CheckCircle2 size={18} className="text-emerald-400 mt-0.5 shrink-0" />
+              <li className="flex items-start gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700/50 text-sm font-medium">
+                <CheckCircle2 size={20} className="text-emerald-400 mt-0.5 shrink-0" />
                 <span>{isNeighborhood ? "Evacuate the house if water levels rise rapidly or you detect structural damage." : "Evacuate immediately if you detect smoke. Feel doors before opening."}</span>
               </li>
-              <li className="flex items-start gap-3 bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 text-sm">
-                <CheckCircle2 size={18} className="text-emerald-400 mt-0.5 shrink-0" />
+              <li className="flex items-start gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700/50 text-sm font-medium">
+                <CheckCircle2 size={20} className="text-emerald-400 mt-0.5 shrink-0" />
                 <span>Unlock front doors to allow rapid responder access if safe to do so.</span>
               </li>
             </ul>
           </div>
-          <button onClick={() => resolveAlert(currentRoomAlert.id)} className="text-sm text-slate-500 hover:text-white transition-colors underline decoration-slate-600 pb-8">Cancel Signal</button>
+          <button onClick={() => resolveAlert(currentRoomAlert.id)} className="text-sm font-bold text-slate-500 hover:text-white transition-colors underline decoration-slate-600 pb-8 active:scale-95">Cancel Signal</button>
         </div>
       );
     }
 
     return (
-      <div className="w-full h-full bg-slate-100 overflow-y-auto">
-        <div className="max-w-md mx-auto min-h-full bg-white shadow-xl flex flex-col">
-          <div className="p-6 md:p-8 text-center shrink-0 border-b border-slate-100 bg-white sticky top-0 z-10">
-            <div className="flex justify-between items-start mb-2">
-               <div className="inline-flex items-center p-2 bg-slate-50 rounded-xl shadow-sm border border-slate-100">
-                 <Zap className="text-blue-600 mr-1.5" size={18} /><span className="font-bold text-sm tracking-tight text-slate-800">BeaconNet</span>
+      <div className="w-full h-full bg-slate-100 overflow-y-auto font-sans">
+        <div className="max-w-md mx-auto min-h-full bg-white shadow-2xl flex flex-col relative">
+          
+          <div className="p-6 md:p-8 text-center shrink-0 bg-white sticky top-0 z-20 shadow-sm">
+            <div className="flex justify-between items-start mb-4">
+               <div className="inline-flex items-center px-3 py-1.5 bg-blue-50 rounded-xl border border-blue-100">
+                 <Zap className="text-blue-600 mr-1.5" size={16} /><span className="font-bold text-xs tracking-tight text-blue-900">BeaconNet Node</span>
                </div>
-               <button onClick={handleLogout} className="text-slate-400 hover:text-slate-600 p-2"><LogOut size={18}/></button>
+               <button onClick={handleLogout} className="text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 p-2 rounded-lg transition-colors active:scale-95"><LogOut size={18}/></button>
             </div>
-            <h1 className="text-2xl font-black text-slate-800 mb-1">{activeVenue.name}</h1>
-            <div className="mt-3 flex items-center justify-center bg-slate-50 p-2 rounded-lg border border-slate-200">
-              <MapPin size={14} className="text-slate-400 mr-2"/>
-              <select value={guestRoomId} onChange={(e) => setGuestRoomId(e.target.value)} className="bg-transparent text-slate-700 text-sm font-bold outline-none cursor-pointer">
-                <option value="" disabled>Select {isNeighborhood ? 'Address' : 'Zone'}...</option>
+            <h1 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">{activeVenue.name}</h1>
+            <div className="mt-4 flex items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors p-3 rounded-xl border border-slate-200 group">
+              <MapPin size={16} className="text-slate-400 mr-2 group-focus-within:text-blue-500 transition-colors"/>
+              <select value={guestRoomId} onChange={(e) => setGuestRoomId(e.target.value)} className="bg-transparent text-slate-800 text-sm font-bold outline-none cursor-pointer w-full text-center appearance-none">
+                <option value="" disabled>Select {isNeighborhood ? 'Your Address' : 'Your Zone'}...</option>
                 {activeVenue.rooms?.map(id => <option key={id} value={id}>{id}</option>)}
               </select>
             </div>
           </div>
 
           <div className="flex-grow px-6 py-6 space-y-4 bg-slate-50/50">
-            <div className="bg-purple-50 border border-purple-200 p-4 rounded-2xl flex items-center justify-between shadow-sm mb-2">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 p-4 rounded-3xl flex items-center justify-between shadow-sm mb-4">
               <div className="flex items-center gap-3">
-                 <div className={`p-2 rounded-full ${useLoraMesh ? 'bg-purple-600 text-white' : 'bg-purple-200 text-purple-500'}`}>
-                    <WifiOff size={18} />
+                 <div className={`p-2.5 rounded-2xl transition-colors ${useLoraMesh ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' : 'bg-white text-purple-400 border border-purple-100'}`}>
+                    <WifiOff size={20} />
                  </div>
                  <div>
                     <h3 className="font-bold text-purple-900 text-sm">Internet Down?</h3>
-                    <p className="text-xs text-purple-700">Simulate Offline LoRa Mesh</p>
+                    <p className="text-[10px] text-purple-600 font-semibold uppercase tracking-wider mt-0.5">Simulate LoRa Mesh</p>
                  </div>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer active:scale-95 transition-transform">
                 <input type="checkbox" className="sr-only peer" checked={useLoraMesh} onChange={() => setUseLoraMesh(!useLoraMesh)} />
-                <div className="w-11 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                <div className="w-12 h-6 bg-purple-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
               </label>
             </div>
 
-            <button onClick={() => triggerAlert('Medical')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-red-50 border-2 border-slate-100 hover:border-red-500 rounded-3xl p-4 flex items-center gap-4 transition-all shadow-sm disabled:opacity-50">
-              <div className="bg-red-100 text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors p-3.5 rounded-2xl shrink-0"><Activity size={24} /></div>
+            <button onClick={() => triggerAlert('Medical')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-red-50 border border-slate-200 hover:border-red-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
+              <div className="bg-red-50 text-red-600 group-hover:bg-red-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><Activity size={28} /></div>
               <div className="text-left flex-grow">
-                <h2 className="text-lg font-bold text-slate-800">Medical SOS</h2>
-                <p className="text-slate-500 text-xs mt-0.5">Injury, illness, distress</p>
+                <h2 className="text-xl font-black text-slate-800">Medical SOS</h2>
+                <p className="text-slate-500 text-xs font-medium mt-0.5">Injury, illness, distress</p>
               </div>
-              <ChevronRight size={20} className="text-slate-300 group-hover:text-red-500 shrink-0" />
+              <ChevronRight size={24} className="text-slate-300 group-hover:text-red-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
-            <button onClick={() => triggerAlert('Fire')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-orange-50 border-2 border-slate-100 hover:border-orange-500 rounded-3xl p-4 flex items-center gap-4 transition-all shadow-sm disabled:opacity-50">
-              <div className="bg-orange-100 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors p-3.5 rounded-2xl shrink-0"><Flame size={24} /></div>
+            <button onClick={() => triggerAlert('Fire')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-orange-50 border border-slate-200 hover:border-orange-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
+              <div className="bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><Flame size={28} /></div>
               <div className="text-left flex-grow">
-                <h2 className="text-lg font-bold text-slate-800">Fire / Flood</h2>
-                <p className="text-slate-500 text-xs mt-0.5">Evacuation required</p>
+                <h2 className="text-xl font-black text-slate-800">Fire / Flood</h2>
+                <p className="text-slate-500 text-xs font-medium mt-0.5">Evacuation required</p>
               </div>
-              <ChevronRight size={20} className="text-slate-300 group-hover:text-orange-500 shrink-0" />
+              <ChevronRight size={24} className="text-slate-300 group-hover:text-orange-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
-            <button onClick={() => triggerAlert('Security')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-blue-50 border-2 border-slate-100 hover:border-blue-500 rounded-3xl p-4 flex items-center gap-4 transition-all shadow-sm disabled:opacity-50">
-              <div className="bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors p-3.5 rounded-2xl shrink-0"><ShieldAlert size={24} /></div>
+            <button onClick={() => triggerAlert('Security')} disabled={!guestRoomId || isSubmitting} className="group w-full bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-400 rounded-[2rem] p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md disabled:opacity-50 active:scale-[0.98]">
+              <div className="bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors p-4 rounded-[1.5rem] shrink-0"><ShieldAlert size={28} /></div>
               <div className="text-left flex-grow">
-                <h2 className="text-lg font-bold text-slate-800">Security Threat</h2>
-                <p className="text-slate-500 text-xs mt-0.5">Intruder, physical danger</p>
+                <h2 className="text-xl font-black text-slate-800">Security Threat</h2>
+                <p className="text-slate-500 text-xs font-medium mt-0.5">Intruder, physical danger</p>
               </div>
-              <ChevronRight size={20} className="text-slate-300 group-hover:text-blue-500 shrink-0" />
+              <ChevronRight size={24} className="text-slate-300 group-hover:text-blue-500 shrink-0 mr-2 transition-transform group-hover:translate-x-1" />
             </button>
 
-            <div className="bg-white p-4 rounded-3xl border border-slate-200 mt-6 shadow-sm">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 ml-1">Custom AI Alert</label>
-              <div className="flex gap-2 bg-slate-50 p-1.5 rounded-2xl border border-slate-200 focus-within:border-blue-500 transition-all">
-                <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Describe situation..." className="flex-grow p-2 text-sm bg-transparent text-slate-800 outline-none min-w-0" disabled={isSubmitting} />
-                <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-sm hover:bg-blue-600 disabled:opacity-50 transition-colors font-bold shrink-0 flex items-center justify-center min-w-[70px]">
-                  {isSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Send'}
+            <div className="bg-white p-5 rounded-[2rem] border border-slate-200 mt-8 shadow-sm">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3 ml-1 flex items-center gap-1.5"><Zap size={12} className="text-blue-500"/> Custom AI Alert</label>
+              <div className="flex gap-2 bg-slate-50 p-1.5 rounded-[1.5rem] border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+                <input type="text" value={customText} onChange={(e) => setCustomText(e.target.value)} placeholder="Describe situation..." className="flex-grow p-3 text-sm font-medium bg-transparent text-slate-800 outline-none min-w-0" disabled={isSubmitting} />
+                <button onClick={() => triggerAlert('Custom', true)} disabled={isSubmitting || !customText.trim() || !guestRoomId} className="bg-slate-900 text-white px-5 py-2.5 rounded-[1.2rem] text-sm font-bold hover:bg-blue-600 disabled:opacity-50 transition-all active:scale-95 shrink-0 flex items-center justify-center min-w-[80px]">
+                  {isSubmitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Send'}
                 </button>
               </div>
             </div>
@@ -698,115 +685,109 @@ export default function App() {
     const isNeighborhood = activeVenue.venueType === 'neighborhood';
 
     return (
-      <div className="flex flex-col md:flex-row h-full w-full bg-slate-100 overflow-hidden font-sans">
-        
-        {isRedAlert && <div className="absolute inset-0 border-[8px] border-red-500 pointer-events-none z-50 animate-pulse"></div>}
+      <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 overflow-hidden font-sans">
+        {isRedAlert && <div className="absolute inset-0 border-[6px] border-red-500 pointer-events-none z-50 animate-pulse"></div>}
 
-        <div className="md:hidden w-full bg-slate-900 text-white p-4 flex justify-between items-center shrink-0 z-20 shadow-md">
-          <div className="flex items-center gap-2 font-bold"><Zap className="text-blue-500" size={20} /> Command</div>
-          <button onClick={handleLogout} className="text-slate-400 hover:text-red-400 flex items-center gap-2 text-sm font-bold transition-colors">
-            LOGOUT <LogOut size={18} />
+        {/* Mobile Header */}
+        <div className="md:hidden w-full bg-slate-900 text-white p-4 flex justify-between items-center shrink-0 z-20 shadow-lg">
+          <div className="flex items-center gap-2 font-black text-lg"><Zap className="text-blue-500" size={20} /> Command</div>
+          <button onClick={handleLogout} className="text-white hover:text-red-400 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-bold transition-colors active:scale-95">
+            LOGOUT <LogOut size={14} />
           </button>
         </div>
 
-        <div className="hidden md:flex w-20 bg-slate-900 flex-col items-center py-6 shadow-2xl z-20 shrink-0">
-          <div className="bg-blue-600 p-3 rounded-xl mb-8 shadow-lg shadow-blue-900/50"><Zap className="text-white" size={24} /></div>
+        {/* Desktop Sidebar */}
+        <div className="hidden md:flex w-24 bg-slate-900 flex-col items-center py-6 shadow-2xl z-20 shrink-0 relative">
+          <div className="bg-gradient-to-br from-blue-500 to-blue-700 p-3.5 rounded-2xl mb-8 shadow-lg shadow-blue-900/50"><Zap className="text-white" size={28} /></div>
           <div className="flex flex-col gap-6 w-full items-center">
-            <button className={`text-blue-400 p-3 rounded-xl relative transition ${isRedAlert ? 'bg-red-500 text-white animate-bounce' : 'bg-slate-800 hover:bg-slate-700'}`}>
-              <Crosshair size={24} />
-              {isRedAlert && <span className="absolute top-0 right-0 w-3 h-3 bg-red-900 rounded-full border-2 border-red-500 animate-ping"></span>}
-            </button>
-            <button className="text-slate-500 hover:text-slate-300 transition-colors p-3"><Settings size={24} /></button>
-          </div>
-          <div className="mt-auto flex flex-col items-center pb-4">
-            <button onClick={handleLogout} className="text-slate-500 hover:text-red-500 transition-colors p-2 flex flex-col items-center gap-1 group">
-              <LogOut size={24} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Logout</span>
+            <button className={`p-3.5 rounded-2xl relative transition-all duration-300 ${isRedAlert ? 'bg-red-500 text-white animate-bounce shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'bg-slate-800 text-blue-400 hover:bg-slate-700 hover:text-white'}`}>
+              <Crosshair size={26} />
             </button>
           </div>
         </div>
 
-        <div className="w-full md:w-[450px] bg-white border-r border-slate-200 flex flex-col h-[50vh] md:h-full z-10 shadow-xl shrink-0">
-          <div className={`p-4 md:p-6 border-b shrink-0 transition-colors ${isRedAlert ? 'bg-red-600 border-red-700 text-white' : 'border-slate-100'}`}>
-            <h1 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2">
-                {isRedAlert && <AlertTriangle size={24} className="animate-pulse" />} 
+        {/* Incidents List Column */}
+        <div className="w-full md:w-[480px] bg-white border-r border-slate-200 flex flex-col h-[50vh] md:h-full z-10 shadow-xl shrink-0">
+          
+          <div className="hidden md:flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/80 backdrop-blur shrink-0">
+             <div className="text-xs font-bold text-slate-500 uppercase tracking-widest"><Building size={14} className="inline mr-1 -mt-0.5"/> {activeVenue.name}</div>
+             <button onClick={handleLogout} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-red-300 text-slate-600 hover:text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95">
+                <LogOut size={14}/> LOGOUT
+             </button>
+          </div>
+
+          <div className={`p-5 md:p-6 border-b shrink-0 transition-colors duration-300 ${isRedAlert ? 'bg-red-600 border-red-700 text-white shadow-inner' : 'bg-white border-slate-100'}`}>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-3">
+                {isRedAlert && <AlertTriangle size={28} className="animate-pulse" />} 
                 {isNeighborhood ? 'Community Incidents' : 'Active Incidents'}
             </h1>
-            <p className={`text-xs md:text-sm font-medium mt-1 ${isRedAlert ? 'text-red-200' : 'text-slate-500'}`}>{activeVenue.name}</p>
           </div>
           
-          <div className="px-4 md:px-6 py-2 md:py-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center shrink-0">
-            <span className="text-[10px] md:text-xs font-bold text-slate-500 uppercase tracking-wider">Prioritized Queue</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] md:text-xs font-bold ${isRedAlert ? 'bg-red-100 text-red-700' : 'bg-slate-200 text-slate-500'}`}>{venueAlerts.length}</span>
+          <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-200 flex justify-between items-center shrink-0">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Prioritized Queue</span>
+            <span className={`px-2.5 py-1 rounded-md text-xs font-black shadow-sm ${isRedAlert ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600'}`}>{venueAlerts.length}</span>
           </div>
           
-          <div className="flex-grow overflow-y-auto bg-slate-50 p-4 space-y-4">
+          <div className="flex-grow overflow-y-auto bg-slate-50/50 p-4 space-y-4 custom-scrollbar">
             {venueAlerts.length === 0 && (
-              <div className="text-center text-slate-400 py-8 flex flex-col items-center">
-                <Shield size={48} className="text-slate-200 mb-3 stroke-1" />
-                <p className="font-medium text-md text-slate-500">All systems secure.</p>
-                <p className="text-xs mt-1">No active incidents at {activeVenue.name}.</p>
+              <div className="text-center text-slate-400 py-12 flex flex-col items-center">
+                <div className="bg-slate-100 p-6 rounded-full mb-4 border border-slate-200"><Shield size={48} className="text-emerald-400/50" /></div>
+                <p className="font-bold text-lg text-slate-600">All systems secure.</p>
+                <p className="text-sm mt-1 font-medium text-slate-400">No active incidents detected.</p>
               </div>
             )}
 
             {venueAlerts.map(alert => (
-              <div key={alert.id} className="bg-white p-4 rounded-2xl shadow-sm border-2 border-red-200 hover:border-red-400 transition-all">
-                
+              <div key={alert.id} className="bg-white p-5 rounded-[1.5rem] shadow-sm border border-slate-200 hover:border-red-300 hover:shadow-md transition-all group">
                 {alert.network === 'LoRa Radio Mesh' && (
-                   <div className="bg-purple-100 text-purple-800 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded mb-3 flex items-center gap-1 w-max">
-                      <WifiOff size={12} /> {alert.network} (Internet Offline)
+                   <div className="bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md mb-4 flex items-center gap-1.5 w-max shadow-sm border border-purple-200">
+                      <WifiOff size={12} /> {alert.network} (Offline)
                    </div>
                 )}
-
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2.5 rounded-xl text-white shadow-inner shrink-0 ${alert.severity === 'Critical' ? 'bg-red-500' : 'bg-orange-500'}`}>
-                      {alert.type === 'Fire' ? <Flame size={20} /> : alert.type === 'Medical' ? <Activity size={20} /> : <ShieldAlert size={20} />}
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className={`p-3 rounded-2xl text-white shadow-md shrink-0 ${alert.severity === 'Critical' ? 'bg-red-500 shadow-red-500/30' : 'bg-orange-500 shadow-orange-500/30'}`}>
+                      {alert.type === 'Fire' ? <Flame size={24} /> : alert.type === 'Medical' ? <Activity size={24} /> : <ShieldAlert size={24} />}
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-bold text-slate-900 text-base md:text-lg truncate">{alert.roomId}</h3>
-                      <p className="text-[10px] md:text-xs font-semibold text-slate-500 flex items-center gap-1"><Clock size={12} /> {new Date(alert.timestamp).toLocaleTimeString()}</p>
+                      <h3 className="font-black text-slate-900 text-lg md:text-xl truncate tracking-tight">{alert.roomId}</h3>
+                      <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5 mt-0.5"><Clock size={12} className="text-slate-400"/> {new Date(alert.timestamp).toLocaleTimeString()}</p>
                     </div>
                   </div>
-                  <span className={`text-[10px] md:text-xs font-black uppercase tracking-widest px-2 py-1 rounded-md shrink-0 ${alert.severity === 'Critical' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>{alert.severity}</span>
+                  <span className={`text-[10px] md:text-xs font-black uppercase tracking-widest px-2.5 py-1 rounded-md shrink-0 shadow-sm border ${alert.severity === 'Critical' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>{alert.severity}</span>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-xl mb-3 border border-slate-100">
-                  <p className="text-sm font-medium text-slate-800 leading-snug mb-2">{alert.summary}</p>
+                <div className="bg-slate-50/80 p-4 rounded-2xl mb-4 border border-slate-100">
+                  <p className="text-sm font-semibold text-slate-700 leading-relaxed mb-3">{alert.summary}</p>
                   
-                  <div className="flex items-center gap-1.5 text-xs text-slate-500 border-t border-slate-200 pt-2">
+                  <div className="flex items-center gap-2 text-xs text-slate-500 border-t border-slate-200 pt-3 font-medium">
                     {alert.source?.includes('IoT') ? <Cpu size={14} className="text-blue-500" /> : <User size={14} className="text-slate-400" />}
-                    <span className="font-semibold text-slate-600">Source:</span> {alert.source || 'Mobile App'}
+                    <span className="font-bold text-slate-600">Source:</span> {alert.source || 'Mobile App'}
                   </div>
-
-                  {alert.tags && (
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {alert.tags.map((tag, idx) => <span key={idx} className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${tag === 'HARDWARE' ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-200 text-slate-600 border-slate-300'}`}>{tag}</span>)}
-                    </div>
-                  )}
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <button onClick={() => { setCurrentRole('responder'); setActiveResponderAlert(alert); setResponderEta(180); }} className="flex-1 bg-slate-900 text-white py-2 rounded-xl text-xs font-semibold hover:bg-slate-800 flex items-center justify-center gap-2">
+                <div className="flex gap-2">
+                  <button onClick={() => { setCurrentRole('responder'); setActiveResponderAlert(alert); }} className="flex-1 bg-slate-900 text-white py-2.5 rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors shadow-sm active:scale-95 flex items-center justify-center gap-2">
                     <MapIcon size={14} /> Tactical UI
                   </button>
-                  <button onClick={() => resolveAlert(alert.id)} className="px-4 bg-white border border-slate-300 text-slate-700 py-2 rounded-xl text-xs font-semibold hover:bg-slate-50">Clear</button>
+                  <button onClick={() => resolveAlert(alert.id)} className="px-5 bg-white border border-slate-300 text-slate-600 py-2.5 rounded-xl text-xs font-bold hover:bg-slate-50 hover:text-red-600 transition-colors shadow-sm active:scale-95">Clear</button>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex-grow p-4 md:p-8 flex flex-col bg-slate-200 h-[50vh] md:h-full overflow-hidden">
-          <div className="w-full h-full bg-white rounded-2xl border border-slate-300 shadow-sm overflow-hidden flex flex-col relative p-6">
-             <div className="absolute top-4 left-4 bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-2 z-10"><Building size={14} /> {activeVenue.name} Overview</div>
+        {/* Overview Map Panel */}
+        <div className="flex-grow p-4 md:p-6 flex flex-col h-[50vh] md:h-full overflow-hidden bg-slate-100">
+          <div className="w-full h-full bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col relative p-6">
+             <div className="absolute top-6 left-6 bg-slate-900/90 backdrop-blur text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg flex items-center gap-2 z-10 border border-slate-700"><Building size={14} className="text-blue-400"/> Facility Overview</div>
              
-             <div className="flex-grow flex items-center justify-center overflow-auto p-4 custom-scrollbar">
+             <div className="flex-grow flex items-center justify-center overflow-auto p-4 custom-scrollbar bg-slate-50/50 rounded-2xl mt-12 border border-slate-100">
                 <div className="flex flex-wrap justify-center gap-4 max-w-4xl">
                    {activeVenue.rooms?.map(rId => {
                      const isAlert = venueAlerts.some(a => a.roomId === rId);
                      return (
-                        <div key={rId} className={`relative flex flex-col items-center justify-center border-2 rounded-xl transition-all p-4 min-w-[100px] min-h-[100px] ${isAlert ? 'border-red-500 bg-red-50 shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse scale-105 z-10' : 'border-slate-200 bg-slate-50'}`}>
-                           <span className={`font-bold text-center ${isAlert ? 'text-red-700 text-xl' : 'text-slate-500 text-sm'}`}>{rId}</span>
-                           {isAlert && <AlertTriangle size={20} className="text-red-600 mt-2" />}
+                        <div key={rId} className={`relative flex flex-col items-center justify-center border-2 rounded-[1.5rem] transition-all duration-300 p-4 min-w-[110px] min-h-[110px] shadow-sm ${isAlert ? 'border-red-500 bg-red-50 shadow-[0_0_30px_rgba(239,68,68,0.4)] animate-pulse scale-105 z-10' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                           <span className={`font-black text-center ${isAlert ? 'text-red-700 text-2xl tracking-tight' : 'text-slate-500 text-sm'}`}>{rId}</span>
+                           {isAlert && <AlertTriangle size={24} className="text-red-600 mt-2" />}
                         </div>
                      )
                    })}
@@ -824,82 +805,77 @@ export default function App() {
       return (
         <div className="flex flex-col items-center justify-center h-full bg-black text-slate-400 p-6 text-center font-mono w-full">
           <Navigation size={64} className="mb-6 opacity-50" />
-          <p className="text-xl">NO ACTIVE RESPONDER UPLINK</p>
-          <button onClick={() => setCurrentRole('staff')} className="mt-8 px-6 py-2 border border-slate-700 hover:bg-slate-800 rounded text-slate-300">RETURN TO COMMAND</button>
+          <p className="text-xl font-bold tracking-widest">NO ACTIVE RESPONDER UPLINK</p>
+          <button onClick={() => setCurrentRole('staff')} className="mt-8 px-6 py-2.5 border border-slate-700 hover:bg-slate-800 rounded-lg text-slate-300 font-bold active:scale-95 transition-all">RETURN TO COMMAND</button>
         </div>
       );
     }
 
     const isLoRa = activeResponderAlert.network === 'LoRa Radio Mesh';
+    const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
 
     return (
       <div className="bg-[#0a0f16] h-full w-full text-slate-300 flex flex-col font-mono selection:bg-red-500/30 overflow-hidden">
-        <div className={`border-b p-3 flex justify-between items-center shadow-lg shrink-0 ${isLoRa ? 'bg-purple-900/20 border-purple-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
+        <div className={`border-b p-3 md:p-4 flex justify-between items-center shadow-lg shrink-0 ${isLoRa ? 'bg-purple-900/20 border-purple-500/30' : 'bg-red-900/20 border-red-500/30'}`}>
           <div className="flex items-center gap-3">
-            <div className={`${isLoRa ? 'bg-purple-600' : 'bg-red-600'} text-white p-2 rounded animate-pulse shrink-0`}><AlertTriangle size={20} /></div>
+            <div className={`${isLoRa ? 'bg-purple-600' : 'bg-red-600'} text-white p-2.5 rounded-lg shrink-0 shadow-lg`}><AlertTriangle size={24} /></div>
             <div className="min-w-0">
-              <div className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} font-bold text-sm md:text-xl tracking-widest uppercase truncate`}>TACTICAL UPLINK</div>
-              <div className={`text-[10px] md:text-xs truncate ${isLoRa ? 'text-purple-400/70' : 'text-red-400/70'}`}>TOKEN: {activeResponderAlert.responderLink} • {activeVenue.name}</div>
+              <div className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} font-black text-sm md:text-2xl tracking-widest uppercase truncate`}>TACTICAL UPLINK</div>
+              <div className={`text-[10px] md:text-sm font-bold truncate ${isLoRa ? 'text-purple-400/70' : 'text-red-400/70'}`}>TOKEN: {activeResponderAlert.responderLink} • {activeVenue.name}</div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-             <div className="text-right shrink-0">
-               <div className="text-2xl md:text-3xl font-light text-white">{Math.floor(responderEta / 60)}:{(responderEta % 60).toString().padStart(2, '0')}</div>
-               <div className={`text-[8px] md:text-[10px] uppercase tracking-widest ${isLoRa ? 'text-purple-400' : 'text-red-400'}`}>Est. Arrival</div>
-             </div>
-             <button onClick={handleLogout} className="bg-slate-800 p-2 rounded text-slate-500 hover:text-white"><LogOut size={16}/></button>
+          <div className="flex items-center gap-4 md:gap-6">
+             <CountdownTimer initialEta={180} isLoRa={isLoRa} />
+             <button onClick={handleLogout} className="bg-slate-800 p-3 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors active:scale-95"><LogOut size={20}/></button>
           </div>
         </div>
 
-        <div className="p-4 flex-grow flex flex-col lg:flex-row gap-4 w-full max-w-[1600px] mx-auto overflow-hidden">
+        <div className="p-4 flex-grow flex flex-col lg:flex-row gap-4 w-full max-w-[1800px] mx-auto overflow-hidden">
           <div className="w-full lg:w-1/3 flex flex-col gap-4 overflow-y-auto custom-scrollbar shrink-0 h-[45vh] lg:h-full">
-            <div className="bg-slate-900/80 p-5 border border-slate-800 rounded-lg relative overflow-hidden shrink-0">
-              <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none"><Crosshair size={80} /></div>
+            <div className="bg-slate-900/80 backdrop-blur p-6 border border-slate-800 rounded-2xl relative overflow-hidden shrink-0 shadow-2xl">
+              <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none"><Crosshair size={100} /></div>
               
               {isLoRa && (
-                 <div className="bg-purple-600 text-white text-[10px] font-bold px-2 py-1 rounded inline-flex items-center gap-1 mb-4">
-                    <WifiOff size={12}/> LORA OFFLINE MESH ROUTING
+                 <div className="bg-purple-600/20 border border-purple-500/50 text-purple-400 text-[10px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-2 mb-5">
+                    <WifiOff size={14}/> LORA OFFLINE MESH ROUTING
                  </div>
               )}
 
               <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-3`}>Target Location</h3>
-              <div className="text-3xl md:text-4xl font-black text-white mb-2">{activeResponderAlert.roomId}</div>
-              <div className="text-xs text-slate-400 mb-4">{activeVenue.name}</div>
+              <div className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tight">{activeResponderAlert.roomId}</div>
+              <div className="text-sm font-bold text-slate-400 mb-6">{activeVenue.name}</div>
               
-              <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-2 mt-4`}>Incident Profile</h3>
-              <div className="bg-black/50 p-3 rounded border border-slate-800 text-slate-200">
-                <p className="mb-2 text-sm">{activeResponderAlert.summary}</p>
-                <p className="text-xs text-yellow-500/80 italic border-l-2 border-yellow-500 pl-3 py-1 mb-3">"{activeResponderAlert.translation_es}"</p>
-                <div className="text-[10px] text-slate-500 uppercase flex items-center gap-1 border-t border-slate-800 pt-2">
-                   {activeResponderAlert.source?.includes('IoT') ? <Cpu size={12}/> : <User size={12}/>}
+              <h3 className={`${isLoRa ? 'text-purple-500' : 'text-red-500'} text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold mb-3 mt-4`}>Incident Profile</h3>
+              <div className="bg-black/50 p-4 rounded-xl border border-slate-800 text-slate-200">
+                <p className="mb-3 text-sm font-medium leading-relaxed">{activeResponderAlert.summary}</p>
+                <div className="text-[10px] text-slate-500 font-bold uppercase flex items-center gap-2 border-t border-slate-800/80 pt-3 mt-4">
+                   {activeResponderAlert.source?.includes('IoT') ? <Cpu size={14} className="text-blue-500"/> : <User size={14} className="text-slate-400"/>}
                    Source: {activeResponderAlert.source}
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="w-full lg:w-2/3 bg-slate-900/80 border border-slate-800 rounded-lg flex flex-col relative overflow-hidden shadow-2xl h-[55vh] lg:h-full shrink-0">
-            <div className="p-3 border-b border-slate-800 flex justify-between items-center bg-black/80 z-20 shrink-0">
-              <span className="text-slate-400 text-[10px] md:text-xs uppercase font-bold flex items-center gap-2"><MapPin size={14} /> Live Satellite</span>
-              <span className={`${isLoRa ? 'text-purple-500' : 'text-green-500'} text-[10px] md:text-xs tracking-widest flex items-center gap-1.5`}><span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isLoRa ? 'bg-purple-500' : 'bg-green-500'}`}></span>{isLoRa ? 'LORA MESH ACTIVE' : 'ACTIVE'}</span>
+          <div className="w-full lg:w-2/3 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl flex flex-col relative overflow-hidden shadow-2xl h-[55vh] lg:h-full shrink-0">
+            <div className="p-3 md:p-4 border-b border-slate-800 flex justify-between items-center bg-black/80 z-20 shrink-0">
+              <span className="text-slate-400 text-[10px] md:text-xs uppercase font-bold flex items-center gap-2"><MapPin size={16} /> Live Satellite Uplink</span>
+              <span className={`${isLoRa ? 'text-purple-500' : 'text-green-500'} text-[10px] md:text-xs font-bold tracking-widest flex items-center gap-2`}>
+                 <span className={`w-2 h-2 rounded-full animate-pulse shadow-lg ${isLoRa ? 'bg-purple-500 shadow-purple-500' : 'bg-green-500 shadow-green-500'}`}></span>
+                 {isLoRa ? 'LORA MESH ACTIVE' : 'SYSTEM SECURE'}
+              </span>
             </div>
             
             <div className="flex-grow relative flex bg-black overflow-hidden w-full h-full">
-               
-               {/* FIXED GOOGLE MAPS SATELLITE URL */}
                <iframe 
-                 title="Tactical Map"
-                 src={`https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.lng}&t=k&z=19&ie=UTF8&iwloc=&output=embed`}
-                 className="absolute inset-0 w-full h-full border-0 opacity-80" 
-                 style={{ filter: "sepia(20%) hue-rotate(180deg) saturate(150%) brightness(80%)" }}
-                 allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
+                  title="Tactical Map"
+                  src={mapUrl}
+                  className="absolute inset-0 w-full h-full border-0 opacity-80" 
+                  style={{ filter: "sepia(20%) hue-rotate(180deg) saturate(150%) brightness(80%)" }}
+                  allowFullScreen="" loading="lazy" referrerPolicy="no-referrer-when-downgrade"
                ></iframe>
-
                <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(#334155 1px, transparent 1px), linear-gradient(90deg, #334155 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
                <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
-                  <div className={`absolute w-[150%] max-w-[800px] aspect-square animate-[spin_4s_linear_infinite] origin-center opacity-60 rounded-full ${isLoRa ? 'bg-gradient-to-r from-transparent via-purple-500/10 to-transparent' : 'bg-gradient-to-r from-transparent via-blue-500/10 to-transparent'}`} style={{ background: `conic-gradient(from 0deg, transparent 0deg, ${isLoRa ? 'rgba(168, 85, 247, 0.3)' : 'rgba(59, 130, 246, 0.3)'} 60deg, transparent 60deg)` }}></div>
                   <div className="absolute flex flex-col items-center justify-center z-10">
-                    <div className="w-24 h-24 border border-red-500/50 rounded-full absolute animate-ping"></div>
                     <div className="w-16 h-16 border-2 border-red-500/80 rounded-full absolute"></div>
                     <div className="w-[100vw] h-px bg-red-500/30 absolute"></div>
                     <div className="w-px h-[100vh] bg-red-500/30 absolute"></div>
@@ -910,9 +886,10 @@ export default function App() {
                   </div>
                </div>
             </div>
-            <div className="bg-black/90 border-t border-slate-800 p-2 text-[9px] text-slate-500 flex justify-between z-20 shrink-0">
+
+            <div className="bg-black/90 border-t border-slate-800 p-3 text-[10px] font-bold text-slate-500 flex justify-between z-20 shrink-0">
               <span className="truncate mr-2 font-mono text-blue-400">LAT/LNG: {activeVenue.lat}, {activeVenue.lng}</span>
-              <span className="shrink-0 text-slate-600">ENC: AES-256</span>
+              <span className="shrink-0 text-slate-600">ENC: AES-256-GCM</span>
             </div>
           </div>
         </div>
@@ -920,9 +897,9 @@ export default function App() {
     );
   };
 
-  // --- Main Render Engine ---
+  // This architectural change ensures the components don't remount and blink!
   return (
-    <div className="h-screen w-full bg-slate-900 text-slate-900 flex flex-col overflow-hidden">
+    <div className="h-screen w-full bg-slate-900 text-slate-900 flex flex-col overflow-hidden selection:bg-blue-500/30">
       {currentRole === 'portal' && <Portal />}
       {currentRole === 'admin' && <AdminSettings />}
       {currentRole === 'guest' && <GuestInterface />}
