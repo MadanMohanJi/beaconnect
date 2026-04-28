@@ -905,8 +905,7 @@ export default function App() {
          );
        }
 
-       const mapUrl = `https://maps.google.com/maps?q=$${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;
-       return (
+const mapUrl = `https://maps.google.com/maps?q=${activeVenue.lat},${activeVenue.lng}&t=k&z=19&output=embed`;       return (
          <div className="flex-grow relative flex bg-black overflow-hidden w-full h-full">
             <iframe 
                title="Tactical Map"
