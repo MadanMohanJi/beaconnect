@@ -279,7 +279,12 @@ export default function App() {
   const handleVoiceInput = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return alert("Your browser does not support Voice-to-Text. Please type your message.");
+    
     const recognition = new SpeechRecognition();
+    
+    // --- NEW: Tell the microphone to listen in the user's native device language! ---
+    recognition.lang = navigator.language || 'en-US'; 
+    
     recognition.onstart = () => setIsRecording(true);
     recognition.onresult = (e) => setCustomText(e.results[0][0].transcript);
     recognition.onerror = () => setIsRecording(false);
