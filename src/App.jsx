@@ -10,8 +10,7 @@ import {
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'; // NEW IMPORTS
-
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 // --- Firebase Configuration ---
 const firebaseConfig = {
   apiKey: "AIzaSyBgo3ir7Y5GSck3rIU1c3Dnlva6_RsgaVQ",
